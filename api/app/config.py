@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     database_url: str
     api_keys: str = ""
     cache_ttl_seconds: int = 3600
+    stock_quote_ttl_seconds: int = 300
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

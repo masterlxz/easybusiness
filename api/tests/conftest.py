@@ -19,6 +19,11 @@ def db_session():
         yield session
     finally:
         session.rollback()
-        session.execute(text("TRUNCATE TABLE macro_series_monthly"))
+        session.execute(
+            text(
+                "TRUNCATE TABLE macro_series_monthly, stock_quotes, stock_technicals, "
+                "stock_dividends_avg, stock_price_history, stock_dividend_payments"
+            )
+        )
         session.commit()
         session.close()

@@ -10,13 +10,14 @@ request (same "degrade gracefully" behavior BCB SGS availability warrants).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.models.macro_series import MacroSeriesMonthly
+from app.services.freshness import is_fresh
 from app.sources.bcb_sgs import BcbSgsError, fetch_monthly_series
 from app.sources.catalog import get_series_info
 
@@ -27,14 +28,6 @@ SOURCE_NAME = "bcb_sgs"
 
 class UnknownSeriesError(ValueError):
     """Raised when `series_code` isn't in the known series catalog."""
-
-
-def _is_fresh(latest_fetched_at: datetime | None, ttl_seconds: int) -> bool:
-    if latest_fetched_at is None:
-        return False
-    if latest_fetched_at.tzinfo is None:
-        latest_fetched_at = latest_fetched_at.replace(tzinfo=timezone.utc)
-    return datetime.now(timezone.utc) - latest_fetched_at < timedelta(seconds=ttl_seconds)
 
 
 def _upsert_points(db: Session, series_code: str, points: list[dict]) -> None:
@@ -78,7 +71,7 @@ def get_or_refresh_series(db: Session, series_code: str, ttl_seconds: int) -> di
     )
 
     cached, stale = True, False
-    if not _is_fresh(latest_fetched_at, ttl_seconds):
+    if not is_fresh(latest_fetched_at, ttl_seconds):
         try:
             points = fetch_monthly_series(series_info.bcb_code)
             _upsert_points(db, series_code, points)

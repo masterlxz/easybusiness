@@ -66,3 +66,40 @@ etapa 1.2, decidir a stack, é o próximo passo).
 **Estado ao final**: Fase 1, etapas 1.2-1.5 concluídas e validadas ponta a ponta. Próximo passo
 é a 1.6 (portar as fontes restantes do catálogo). Trabalho ainda não commitado — falta
 confirmar com o dono do projeto antes do push.
+
+### 2026-08-27 — Sessão 3
+
+**Objetivo**: Fase 1.6, primeira fonte adicional — Yahoo Finance (cotação, técnicos,
+dividendos, histórico de preço).
+
+**O que foi feito**:
+- Escopo confirmado com o dono do projeto via `AskUserQuestion`: portar as 5 capacidades do
+  `acoes_yahoo.py` do Anchor de uma vez (não só cotação) — fatia maior que a da Sessão 2, mas
+  mesmo padrão de arquitetura (source → service cache-through → schema → router).
+- Extraído `_is_fresh` de `macro_series_service.py` pra `app/services/freshness.py`
+  (compartilhado com o novo `stock_service.py`), única mudança em código já existente.
+- `app/sources/acoes_yahoo.py`: reimplementação das 5 funções do Anchor
+  (`fetch_quote`/`fetch_price_history`/`fetch_dividends_avg`/`fetch_technicals`/
+  `fetch_dividend_payments`), recebendo um ticker por chamada (não lista, diferente do Anchor
+  — nossa API é por-requisição) com um helper HTTP compartilhado.
+- 5 tabelas novas (`api/app/models/stock.py`, migration `0002`): `stock_quotes`,
+  `stock_technicals`, `stock_dividends_avg` (upsert por sobrescrita) e `stock_price_history`,
+  `stock_dividend_payments` (upsert só-insere, fato histórico imutável).
+- `app/services/stock_service.py`: dois orquestradores genéricos reaproveitados pelas 5
+  capacidades (`_get_or_refresh_single_row`, `_get_or_refresh_list`), mais o tratamento
+  especial de `dividends-avg` (estado "sem dado" — 404 só sem cache, senão mantém servindo o
+  cache existente).
+- 5 rotas sob `GET /v1/stocks/{ticker}/...` (`quote`, `technicals`, `dividends-avg`,
+  `price-history`, `dividend-payments`), mesma auth por `X-API-Key`.
+- 30 novos testes automatizados (mockados) — cliente Yahoo, service (padrão 1-linha via quote,
+  padrão lista-append via price-history, smoke tests dos outros 3) e router — todos passaram
+  de primeira, mais os 14 já existentes (44 no total).
+- Validado ao vivo contra o Yahoo real (ticker PETR4): cotação R$42,70, técnicos (SMA/CAGR)
+  calculados, dividendo médio 5a R$7,88, 2.491 pontos de histórico de preço, 34 pagamentos de
+  dividendo; MGLU3 confirmou que `dividends-avg` funciona pra outro ticker; cache confirmado
+  (`cached: true` numa segunda chamada de `/quote`); 401 sem header.
+- `project/PHASE.md` e `ARCHITECTURE.md` atualizados.
+
+**Estado ao final**: Fase 1.6 com 2 de ~11 fontes portadas (BCB SGS, Yahoo Finance). Próxima
+fonte candidata: bolsai (fundamentos de ação BR, mas exige API key própria — diferente das
+duas primeiras) ou CVM DFP/FII (dados abertos, sem chave). Trabalho ainda não commitado.
