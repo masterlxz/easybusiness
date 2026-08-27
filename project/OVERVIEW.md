@@ -17,14 +17,15 @@ essa coleta um serviço único, confiável e documentado, exposto via API — qu
 passa a consumir (em vez de rodar o coletor localmente), e que qualquer outro projeto (ou
 usuário externo, no modelo pay-as-you-go do blueprint) também pode consumir.
 
-Stack: **ainda não decidida** — ver `ARCHITECTURE.md`, seção "Decisões de Arquitetura em Aberto".
+Stack: **Python + FastAPI + PostgreSQL**, self-host via Docker Compose (decidido na Sessão 2 —
+ver `ARCHITECTURE.md`, seção "Decisões de Arquitetura em Aberto").
 
 ---
 
 # Status Geral
 
 ```
-Fase 1 — Super API Financeira + Super DB (MVP)   [ ] Não iniciada
+Fase 1 — Super API Financeira + Super DB (MVP)   [~] Em andamento (1.1-1.5/8 concluídas)
 Fase 2 — Engine Fiscal (SEFAZ)                    [ ] Não iniciada
 Fase 3 — Meta Cloud API & Automação (WhatsApp)    [ ] Não iniciada
 Fase 4 — Workspace Web App                        [ ] Não iniciada
@@ -34,7 +35,8 @@ Fase 4 — Workspace Web App                        [ ] Não iniciada
 
 # Checklist antes do próximo release
 
-Projeto em fase de bootstrap — ainda não há código (Fase 1, etapa 1.1, decidir a stack, é o
-próximo passo). Esta seção existe para manter o padrão dos outros projetos do autor
-(`truthid/project/OVERVIEW.md`, `anchor/project/OVERVIEW.md`) e será preenchida quando a
-Fase 1 tiver algo rodando de ponta a ponta.
+Fase 1 em andamento — prova de conceito ponta a ponta funcionando (`api/`: BCB SGS, CDI/IPCA,
+cache-through via Postgres, auth por API key, 14 testes automatizados passando). Faltam as
+etapas 1.6-1.8 (portar as demais fontes do catálogo, migrar o Anchor pra consumir a API,
+documentação pública). Esta seção será preenchida com um checklist de release real quando a
+Fase 1 estiver completa.

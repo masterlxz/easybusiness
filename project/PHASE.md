@@ -8,10 +8,10 @@ o Anchor faz de forma isolada (`data-collector/`), expondo tudo via uma API HTTP
 
 **Etapas**:
 - [x] 1.1 — Setup do repositório (Sessão 1: GitHub criado, `project/` criado com o blueprint incorporado)
-- [ ] 1.2 — Decidir a stack (linguagem/framework da API, banco de dados) — ver `ARCHITECTURE.md`
-- [ ] 1.3 — Desenhar o schema do Super DB (normalizar os ~12 formatos de fonte diferentes numa representação comum por domínio: cotação, fundamento, série macro, índice cripto)
-- [ ] 1.4 — Portar a primeira fonte de dado (candidata: BCB SGS ou Yahoo Finance — nenhuma exige API key própria, mais simples pra validar o pipeline ponta a ponta)
-- [ ] 1.5 — Definir o contrato da API pública (rotas, autenticação por API key, formato de resposta)
+- [x] 1.2 — Stack decidida (Sessão 2): Python + FastAPI, PostgreSQL, self-host via Docker Compose
+- [x] 1.3 — Schema inicial via Alembic: `macro_series_monthly` (series_code, reference_month, value_pct, source, fetched_at) — `api/app/models/macro_series.py`
+- [x] 1.4 — Primeira fonte portada (Sessão 2): BCB SGS (CDI e IPCA), reimplementada em `api/app/sources/bcb_sgs.py`, validada ao vivo contra a API real (481 pontos de CDI desde 1986, 559 de IPCA)
+- [x] 1.5 — Contrato definido e validado: `GET /v1/macro-series/{series_code}` com auth por `X-API-Key`, cache-through com TTL configurável (`api/app/services/macro_series_service.py`)
 - [ ] 1.6 — Portar as fontes restantes do catálogo, uma a uma
 - [ ] 1.7 — Anchor passa a consumir a Super API em vez de rodar `data-collector/main.py` localmente (migração do maior consumidor-alvo)
 - [ ] 1.8 — Documentação pública da API (README + docs, mesmo padrão do TruthID `docs/`)

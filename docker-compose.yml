@@ -1,0 +1,32 @@
+name: easybusiness
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_USER=easybusiness
+      - POSTGRES_PASSWORD=easybusiness
+      - POSTGRES_DB=easybusiness
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U easybusiness"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./api
+    user: "1000:1000" # mesmo uid do host — evita __pycache__/.pytest_cache via bind mount como root
+    volumes:
+      - ./api:/app
+    env_file:
+      - ./api/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
