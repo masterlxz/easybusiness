@@ -1,3 +1,5 @@
+from app.models.company import CompanyDcfFundamentals, CompanyPayoutAvg, CompanyRoe
+from app.models.fii import FiiMonthlyIndicator, FiiProperty
 from app.models.macro_series import MacroSeriesMonthly
 from app.models.stock import (
     StockDividendPayment,
@@ -14,4 +16,9 @@ __all__ = [
     "StockDividendsAvg",
     "StockPriceHistory",
     "StockDividendPayment",
+    "CompanyRoe",
+    "CompanyPayoutAvg",
+    "CompanyDcfFundamentals",
+    "FiiMonthlyIndicator",
+    "FiiProperty",
 ]

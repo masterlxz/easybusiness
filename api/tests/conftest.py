@@ -22,7 +22,9 @@ def db_session():
         session.execute(
             text(
                 "TRUNCATE TABLE macro_series_monthly, stock_quotes, stock_technicals, "
-                "stock_dividends_avg, stock_price_history, stock_dividend_payments"
+                "stock_dividends_avg, stock_price_history, stock_dividend_payments, "
+                "company_roe, company_payout_avg, company_dcf_fundamentals, "
+                "fii_monthly_indicators, fii_properties"
             )
         )
         session.commit()

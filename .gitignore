@@ -9,3 +9,6 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# disk cache for downloaded CVM zips (api/app/sources/cvm_dfp.py, cvm_fii.py)
+api/.cache/

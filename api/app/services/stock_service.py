@@ -1,17 +1,15 @@
 """Cache-through orchestration for stock data (quote, technicals, dividend
 average, price history, dividend payments).
 
-Two shapes repeat across the 5 resources — see the two orchestrator
-functions below (`_get_or_refresh_single_row`, `_get_or_refresh_list`), each
-called once per resource with resource-specific fetch/model/upsert glue:
+Two shapes repeat across the 5 resources:
 
 - "single row per ticker" (quote, technicals, dividends-avg): overwritten on
-  every refresh via `ON CONFLICT DO UPDATE` — same pattern as
-  `macro_series_service.get_or_refresh_series`, just one row instead of a
-  time series.
+  every refresh via `ON CONFLICT DO UPDATE` — handled by the shared
+  `app.services.single_row_cache.get_or_refresh_single_row`.
 - "append-only list" (price history, dividend payments): historical facts
   that never change once recorded, so refreshing just adds new rows via
-  `ON CONFLICT DO NOTHING` (a past trading day/payment is immutable).
+  `ON CONFLICT DO NOTHING` (a past trading day/payment is immutable) — see
+  `_get_or_refresh_list` below, specific to this module (only used here).
 """
 from __future__ import annotations
 
@@ -30,6 +28,7 @@ from app.models.stock import (
     StockTechnicals,
 )
 from app.services.freshness import is_fresh
+from app.services.single_row_cache import get_or_refresh_single_row
 from app.sources.acoes_yahoo import (
     YahooFinanceError,
     fetch_dividend_payments,
@@ -49,40 +48,10 @@ class NoDividendDataError(ValueError):
     a legitimate absence of data, not a source failure."""
 
 
-def _get_or_refresh_single_row(db: Session, model, ticker: str, ttl_seconds: int, fetch_fn):
-    row = db.get(model, ticker)
-    cached, stale = True, False
-
-    if not is_fresh(row.fetched_at if row else None, ttl_seconds):
-        try:
-            fields = fetch_fn(ticker)
-            now = datetime.now(timezone.utc)
-            values = {"ticker": ticker, "source": SOURCE_NAME, "fetched_at": now, **fields}
-            stmt = insert(model).values(**values)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=[model.ticker],
-                set_={
-                    **{k: getattr(stmt.excluded, k) for k in fields},
-                    "source": SOURCE_NAME,
-                    "fetched_at": now,
-                },
-            )
-            db.execute(stmt)
-            db.commit()
-            cached = False
-            row = db.get(model, ticker)
-        except YahooFinanceError:
-            if row is None:
-                raise
-            logger.warning("Yahoo Finance unavailable for %s, serving stale cache", ticker)
-            stale = True
-
-    return row, cached, stale
-
-
 def get_or_refresh_quote(db: Session, ticker: str, ttl_seconds: int) -> dict:
-    row, cached, stale = _get_or_refresh_single_row(
-        db, StockQuote, ticker, ttl_seconds, fetch_quote
+    row, cached, stale = get_or_refresh_single_row(
+        db, StockQuote, StockQuote.ticker, ticker, ttl_seconds, fetch_quote, SOURCE_NAME,
+        YahooFinanceError,
     )
     return {
         "ticker": ticker,
@@ -98,8 +67,9 @@ def get_or_refresh_quote(db: Session, ticker: str, ttl_seconds: int) -> dict:
 
 
 def get_or_refresh_technicals(db: Session, ticker: str, ttl_seconds: int) -> dict:
-    row, cached, stale = _get_or_refresh_single_row(
-        db, StockTechnicals, ticker, ttl_seconds, fetch_technicals
+    row, cached, stale = get_or_refresh_single_row(
+        db, StockTechnicals, StockTechnicals.ticker, ticker, ttl_seconds, fetch_technicals,
+        SOURCE_NAME, YahooFinanceError,
     )
     return {
         "ticker": ticker,
@@ -116,40 +86,10 @@ def get_or_refresh_technicals(db: Session, ticker: str, ttl_seconds: int) -> dic
 
 
 def get_or_refresh_dividends_avg(db: Session, ticker: str, ttl_seconds: int) -> dict:
-    row = db.get(StockDividendsAvg, ticker)
-    cached, stale = True, False
-
-    if not is_fresh(row.fetched_at if row else None, ttl_seconds):
-        try:
-            fields = fetch_dividends_avg(ticker)
-            if fields is None:
-                # Source reachable, ticker genuinely has no dividend history
-                # — not an error, but nothing to (over)write either.
-                if row is None:
-                    raise NoDividendDataError(ticker)
-            else:
-                now = datetime.now(timezone.utc)
-                stmt = insert(StockDividendsAvg).values(
-                    ticker=ticker, source=SOURCE_NAME, fetched_at=now, **fields
-                )
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=[StockDividendsAvg.ticker],
-                    set_={
-                        "avg_dividend_5y": stmt.excluded.avg_dividend_5y,
-                        "source": SOURCE_NAME,
-                        "fetched_at": now,
-                    },
-                )
-                db.execute(stmt)
-                db.commit()
-                cached = False
-                row = db.get(StockDividendsAvg, ticker)
-        except YahooFinanceError:
-            if row is None:
-                raise
-            logger.warning("Yahoo Finance unavailable for %s, serving stale cache", ticker)
-            stale = True
-
+    row, cached, stale = get_or_refresh_single_row(
+        db, StockDividendsAvg, StockDividendsAvg.ticker, ticker, ttl_seconds,
+        fetch_dividends_avg, SOURCE_NAME, YahooFinanceError, NoDividendDataError,
+    )
     return {
         "ticker": ticker,
         "source": SOURCE_NAME,

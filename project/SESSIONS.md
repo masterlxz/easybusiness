@@ -103,3 +103,50 @@ dividendos, histórico de preço).
 **Estado ao final**: Fase 1.6 com 2 de ~11 fontes portadas (BCB SGS, Yahoo Finance). Próxima
 fonte candidata: bolsai (fundamentos de ação BR, mas exige API key própria — diferente das
 duas primeiras) ou CVM DFP/FII (dados abertos, sem chave). Trabalho ainda não commitado.
+
+### 2026-08-27/28 — Sessão 4
+
+**Objetivo**: Fase 1.6, terceira fonte — CVM (fundamentos DFP: ROE/payout/DCF; FII: indicadores
+mensais + imóveis).
+
+**O que foi feito**:
+- Escopo confirmado com o dono do projeto via `AskUserQuestion`: portar `cvm_dfp.py` completo +
+  `cvm_fii.py` (não só uma fatia). Antes de planejar em detalhe, baixei e inspecionei os zips
+  reais da CVM (DFP e FII) pra confirmar 100% do schema documentado nos docstrings do Anchor
+  (formato de `CD_CVM`/`CNPJ_Fundo_Classe`/datas, nomes de coluna) em vez de planejar em cima de
+  suposição — zips apagados depois da inspeção.
+- Decisão de design central: como a resolução ticker→código-CVM/CNPJ do Anchor depende da
+  bolsai (fonte paga, não portada), os 5 endpoints novos recebem **código CVM**/**CNPJ**
+  diretamente (não ticker) — `resolve_cnpj` do Anchor não foi portado.
+- `api/app/sources/cvm_dfp.py`/`cvm_fii.py`: reimplementação completa (identificadores em
+  inglês) — download+cache de zip em disco (`api/.cache/`, gitignored), parsing de CSV
+  `;`-delimitado/`latin1`, `_find_exact`/`_find_by_keyword` (D&A/Capex por busca de texto,
+  contas sem código padronizado entre empresas), `_effective_tax_rate`, `_nwc_change`,
+  normalização de CNPJ (`normalize_cnpj`).
+- 5 tabelas novas (`api/app/models/company.py`/`fii.py`, migration `0003`): `company_roe`,
+  `company_payout_avg`, `company_dcf_fundamentals` (1 linha por cvm_code, overwrite),
+  `fii_monthly_indicators` (1 linha por cnpj, overwrite), `fii_properties` (N linhas por cnpj,
+  refresh via delete-e-insere do conjunto inteiro).
+- Extraído `app/services/single_row_cache.py` — generaliza o cache-through "1 linha, overwrite"
+  que antes só existia dentro de `stock_service.py`; refatorado `stock_service.py` pra usar a
+  versão compartilhada (comportamento idêntico, suite de 44 testes da Sessão 3 confirmada sem
+  regressão antes de seguir com CVM).
+- `app/services/company_service.py` (roe/payout/dcf via helper compartilhado) +
+  `app/services/fii_service.py` (monthly_indicators via helper compartilhado; properties com
+  lógica própria de delete-e-insere).
+- 5 rotas: `GET /v1/companies/{cvm_code}/{roe,payout,dcf-fundamentals}` e
+  `GET /v1/fiis/{cnpj}/{monthly-indicators,properties}`, mesma auth por `X-API-Key`.
+- 39 novos testes automatizados (mockados) — incluindo `tests/cvm_fixtures.py` (helper que monta
+  zip em memória com CSV fiel ao schema real confirmado) — todos passaram de primeira nos
+  clientes CVM (14) e services/routers (25); suite completa: 83 testes.
+- Validado ao vivo contra a CVM real: VALE3 (CD_CVM 4170) — ROE 6,25%, **alíquota efetiva
+  55,75% batendo exatamente com o número citado no docstring original do Anchor pra essa mesma
+  empresa** (forte confirmação da lógica portada), payout médio 5a 61,38% (~19s, 5 zips); FII
+  CNPJ `00332266000131` — indicador mensal e imóvel (Via Parque Shopping) corretos; 404/401/
+  cache confirmados.
+- `project/PHASE.md` e `ARCHITECTURE.md` atualizados.
+
+**Estado ao final**: Fase 1.6 com 3 de ~11 fontes portadas (BCB SGS, Yahoo Finance, CVM
+DFP+FII). Próxima fonte candidata: bolsai (exige API key própria) ou uma das fontes de cripto
+(CoinGecko/DefiLlama/alternative.me/ultrasound.money, todas sem chave). Trabalho ainda não
+commitado — falta confirmar com o dono do projeto antes do push.

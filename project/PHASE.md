@@ -12,9 +12,10 @@ o Anchor faz de forma isolada (`data-collector/`), expondo tudo via uma API HTTP
 - [x] 1.3 — Schema inicial via Alembic: `macro_series_monthly` (series_code, reference_month, value_pct, source, fetched_at) — `api/app/models/macro_series.py`
 - [x] 1.4 — Primeira fonte portada (Sessão 2): BCB SGS (CDI e IPCA), reimplementada em `api/app/sources/bcb_sgs.py`, validada ao vivo contra a API real (481 pontos de CDI desde 1986, 559 de IPCA)
 - [x] 1.5 — Contrato definido e validado: `GET /v1/macro-series/{series_code}` com auth por `X-API-Key`, cache-through com TTL configurável (`api/app/services/macro_series_service.py`)
-- [~] 1.6 — Portar as fontes restantes do catálogo, uma a uma (2/11 portadas)
+- [~] 1.6 — Portar as fontes restantes do catálogo, uma a uma (3/11 portadas)
   - [x] Yahoo Finance (Sessão 3): cotação, técnicos (SMA/CAGR), dividendo médio 5a, histórico de preço, histórico de pagamentos — `api/app/sources/acoes_yahoo.py`, 5 endpoints sob `/v1/stocks/{ticker}/...`, validado ao vivo (PETR4/MGLU3)
-  - [ ] bolsai, B3 index stats, CVM DFP/FII, SEC EDGAR, metais Yahoo, CoinGecko, DefiLlama, alternative.me, ultrasound.money
+  - [x] CVM DFP + FII (Sessão 4): ROE, payout médio 5a, 9 campos do DCF (empresas, por código CVM) + indicadores mensais e imóveis (FII, por CNPJ) — `api/app/sources/cvm_dfp.py`/`cvm_fii.py`, 5 endpoints sob `/v1/companies/{cvm_code}/...` e `/v1/fiis/{cnpj}/...`, validado ao vivo (VALE3/CD_CVM 4170, FII CNPJ 00332266000131)
+  - [ ] bolsai, B3 index stats, SEC EDGAR, metais Yahoo, CoinGecko, DefiLlama, alternative.me, ultrasound.money
 - [ ] 1.7 — Anchor passa a consumir a Super API em vez de rodar `data-collector/main.py` localmente (migração do maior consumidor-alvo)
 - [ ] 1.8 — Documentação pública da API (README + docs, mesmo padrão do TruthID `docs/`)
 

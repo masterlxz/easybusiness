@@ -58,6 +58,39 @@ tomadas.
   (5y) calculados corretamente; segunda chamada de `/quote` serviu do cache
   (`cached: true`).
 
+### CVM — DFP + FII (`api/app/sources/cvm_dfp.py` / `cvm_fii.py`) — Sessão 4
+
+- **Estrutura bem diferente das duas fontes anteriores**: não é API por identificador — a CVM
+  publica **um zip por ano** com as demonstrações financeiras de ~870 companhias juntas (DFP) e
+  outro conjunto de zips pra FII (schema/convenção de nome de arquivo próprios). Endpoints
+  recebem **código CVM** (empresa, int) ou **CNPJ** (fundo, normalizado pra 14 dígitos) — não
+  ticker, já que a resolução ticker→identificador depende da bolsai (fonte paga, não portada
+  ainda).
+- **Cache de zip em disco** dentro do container (`api/.cache/cvm_dfp/`, `api/.cache/cvm_fii/`,
+  gitignored) — evita rebaixar o mesmo zip quando duas capacidades da mesma empresa/fundo são
+  pedidas em sequência (ex: ROE depois DCF). Efêmero (apaga num restart do container) — a fonte
+  de verdade entre requisições continua o Postgres via TTL, igual às outras fontes.
+- **Shape simplificado vs. o Anchor**: como `fetch_dcf_fundamentals`/`fetch_monthly_indicators`
+  só devolvem o ano/mês mais recente (nunca uma série histórica), as tabelas de cache são
+  **1 linha por identificador** (mesmo padrão de `stock_quotes`), não 1 linha por ano/mês como
+  `macro_series_monthly`. Exceção: `fii_properties` — N linhas por fundo (vários imóveis no
+  mesmo trimestre) — refresh faz **delete-e-insere** o conjunto inteiro do CNPJ numa transação,
+  em vez de upsert linha a linha, pra um imóvel que saiu do relatório mais recente não ficar
+  "fantasma" na base.
+- TTL: `cvm_ttl_seconds` (novo, padrão 86400s/24h) — bem maior que o das fontes de mercado, dado
+  trimestral/anual.
+- **Refatoração**: extraído `app/services/single_row_cache.py` (generaliza o
+  `_get_or_refresh_single_row` que só existia dentro de `stock_service.py`) — com CVM esse
+  padrão passa a se repetir em 4 lugares (roe, payout, dcf, monthly indicators) além dos 2 já
+  existentes (quote, technicals); `stock_service.py` foi atualizado pra usar a versão
+  compartilhada, mesmo comportamento, suite de testes (44 testes da Sessão 3) confirmada sem
+  regressão antes de seguir.
+- Validado ao vivo contra a API real (Sessão 4): VALE3 (CD_CVM 4170) — ROE 6,25%, alíquota
+  efetiva 55,75% (bate exatamente com o número citado no docstring original do Anchor pra essa
+  mesma empresa), payout médio 5a 61,38% (~19s, 5 zips anuais); FII CNPJ `00332266000131` —
+  indicador mensal e 1 imóvel (Via Parque Shopping) retornados corretamente; 404 pra código CVM
+  inexistente; cache confirmado (`cached: true` numa segunda chamada).
+
 ---
 
 ## Débitos Técnicos de Arquitetura
