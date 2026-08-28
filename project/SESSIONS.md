@@ -150,3 +150,54 @@ mensais + imóveis).
 DFP+FII). Próxima fonte candidata: bolsai (exige API key própria) ou uma das fontes de cripto
 (CoinGecko/DefiLlama/alternative.me/ultrasound.money, todas sem chave). Trabalho ainda não
 commitado — falta confirmar com o dono do projeto antes do push.
+
+### 2026-08-28 — Sessão 5
+
+**Objetivo**: Fase 1.6, quarta fonte — cripto (CoinGecko + DefiLlama + alternative.me +
+ultrasound.money).
+
+**O que foi feito**:
+- Escopo confirmado com o dono do projeto via `AskUserQuestion`: tudo — indicadores de saúde do
+  ETH (TVL trend, net issuance, fees vs emissão, NVT ratio), Fear & Greed global, e
+  cotação/histórico de qualquer moeda por símbolo.
+- Decisão de design central: os 4 indicadores do ETH viram **um endpoint parametrizado por
+  código** (`GET /v1/crypto/eth-indicators/{indicator_code}`), reaproveitando o padrão de
+  catálogo já usado em `/v1/macro-series/{series_code}` — mais consistente aqui do que "1
+  endpoint por capacidade" (padrão Yahoo/CVM) porque as 4 leituras são literalmente o mesmo
+  shape (um número), só vindo de fontes HTTP diferentes. Sem a classificação GREEN/RED do
+  Anchor (isso é regra de negócio da aplicação, não dado da fonte).
+- `app/sources/crypto_common.py` (`CryptoDataError` único, compartilhado pelas 4 fontes) +
+  `cripto_defillama.py`/`cripto_ultrasound.py`/`cripto_feargreed.py`/`cripto_coingecko.py`
+  (reimplementação das 5 funções do Anchor) + `crypto_indicator_catalog.py` (catálogo travado
+  aos 4 códigos já validados em produção).
+- **Achado de testabilidade durante a implementação**: o catálogo inicialmente importava as
+  funções de fetch direto (`from app.sources.cripto_defillama import fetch_tvl_trend_mom`),
+  congelando a referência no dict no momento da construção — `patch()` nos testes não tinha
+  efeito nenhum, porque o dataclass já guardava o objeto função original, não um lookup por
+  nome. Corrigido trocando pra closures que fazem o lookup do atributo do módulo em tempo de
+  chamada (`lambda: cripto_defillama.fetch_tvl_trend_mom()`) — mesma técnica que permite mockar
+  função importada sem reescrever a chamada.
+- 5 tabelas novas (`api/app/models/crypto.py`, migration `0004`): `crypto_indicators`,
+  `crypto_fear_greed` (singleton, `id` sempre 1), `crypto_coin_resolution`, `crypto_quotes` (1
+  linha, overwrite) e `crypto_price_history` (append-only).
+- Extraído `app/services/append_only_list_cache.py` — generaliza o `_get_or_refresh_list` que
+  só existia em `stock_service.py` (2º uso real do shape); `stock_service.py` refatorado pra
+  usar a versão compartilhada, suite completa (83 testes) confirmada sem regressão antes de
+  seguir com cripto.
+- `app/services/crypto_service.py`: indicadores/Fear&Greed via `single_row_cache`; resolução
+  símbolo→coin_id com cache próprio (TTL longo), reaproveitado entre `/quote` e
+  `/price-history` (confirmado por teste: só 1 chamada de resolução pras duas rotas).
+- 4 rotas sob `/v1/crypto/...` (`eth-indicators/{code}`, `fear-greed`, `{symbol}/quote`,
+  `{symbol}/price-history`), mesma auth por `X-API-Key`.
+- 30 novos testes automatizados (mockados) — todos passaram (após o fix de testabilidade
+  acima); suite completa: 113 testes.
+- Validado ao vivo contra as 4 APIs reais: TVL trend +21,4%, net issuance +0,86% anualizado,
+  fees/emissão 0,015, NVT ratio 0,79 (todos os 4 indicadores do ETH); Fear & Greed 73
+  ("Greed"); BTC quote ~US$80.462 e 365 pontos de histórico de preço; cache confirmado
+  (`cached: true`); 404 pra indicador e símbolo desconhecidos; 401 sem chave.
+- `project/PHASE.md` e `ARCHITECTURE.md` atualizados.
+
+**Estado ao final**: Fase 1.6 com 7 de 11 fontes portadas (BCB SGS já contava fora da 1.6; nesta
+fase: Yahoo Finance, CVM DFP+FII, CoinGecko+DefiLlama+alternative.me+ultrasound.money). Restam
+4: bolsai (única que exige API key própria), B3 index stats, SEC EDGAR, Yahoo Metais. Trabalho
+ainda não commitado — falta confirmar com o dono do projeto antes do push.

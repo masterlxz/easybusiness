@@ -24,7 +24,9 @@ def db_session():
                 "TRUNCATE TABLE macro_series_monthly, stock_quotes, stock_technicals, "
                 "stock_dividends_avg, stock_price_history, stock_dividend_payments, "
                 "company_roe, company_payout_avg, company_dcf_fundamentals, "
-                "fii_monthly_indicators, fii_properties"
+                "fii_monthly_indicators, fii_properties, "
+                "crypto_indicators, crypto_fear_greed, crypto_coin_resolution, "
+                "crypto_quotes, crypto_price_history"
             )
         )
         session.commit()

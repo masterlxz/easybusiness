@@ -91,6 +91,44 @@ tomadas.
   indicador mensal e 1 imóvel (Via Parque Shopping) retornados corretamente; 404 pra código CVM
   inexistente; cache confirmado (`cached: true` numa segunda chamada).
 
+### Cripto — CoinGecko + DefiLlama + alternative.me + ultrasound.money — Sessão 5
+
+- 4 fontes pequenas (1-2 chamadas HTTP cada, sem chave) alimentando 4 endpoints. Erro
+  unificado num único `CryptoDataError` (`app/sources/crypto_common.py`) em vez de 1 tipo por
+  fonte (padrão Yahoo/CVM) — como várias fontes alimentam os mesmos endpoints, um tipo só
+  simplifica o `except` do router.
+- **`/v1/crypto/eth-indicators/{indicator_code}`**: os 4 indicadores de saúde do ETH (TVL
+  trend via DefiLlama, net issuance + fees vs emissão via ultrasound.money, NVT ratio via
+  CoinGecko) viram **um endpoint parametrizado por código**, não 4 endpoints separados — mesmo
+  padrão de `GET /v1/macro-series/{series_code}` (catálogo `indicator_code → fetch`,
+  `app/sources/crypto_indicator_catalog.py`), diferente do "1 endpoint por capacidade" do
+  Yahoo/CVM. Sem classificação GREEN/NEUTRAL/RED (isso é regra de negócio do Anchor, não dado
+  — a Super API serve o valor bruto, quem consome decide os thresholds).
+  **Detalhe de testabilidade**: o catálogo guarda o `fetch` como uma closure que faz lookup do
+  atributo do módulo em tempo de chamada (`lambda: cripto_defillama.fetch_tvl_trend_mom()`), não
+  a função importada direto — importar direto congelaria a referência no momento da construção
+  do dict, tornando `patch("app.sources.cripto_defillama.fetch_tvl_trend_mom")` inerte nos
+  testes.
+- **`/v1/crypto/{symbol}/quote`** e **`/price-history`**: cotação/histórico de qualquer moeda
+  via `resolve_coin_id` (CoinGecko `/search`, match exato por símbolo, menor
+  `market_cap_rank` desempata) + `fetch_market_chart`. Resolução símbolo→coin_id tem cache
+  próprio (`crypto_coin_resolution`, TTL longo — `cache_ttl_seconds`) compartilhado entre
+  `/quote` e `/price-history`, evita resolver de novo a cada chamada.
+- TTL: `crypto_quote_ttl_seconds` (novo, 300s, mesmo valor/raciocínio do
+  `stock_quote_ttl_seconds`) só pra `/quote`; `cache_ttl_seconds` (3600s) pros indicadores,
+  Fear & Greed, resolução e histórico.
+- Upsert: `crypto_indicators`/`crypto_fear_greed`/`crypto_coin_resolution`/`crypto_quotes` —
+  `ON CONFLICT DO UPDATE` (1 linha, sobrescrita). `crypto_fear_greed` é singleton (`id` sempre
+  `1`). `crypto_price_history` — `ON CONFLICT DO NOTHING` (append-only).
+- **Refatoração**: extraído `app/services/append_only_list_cache.py` (generaliza o
+  `_get_or_refresh_list` que só existia em `stock_service.py`) — 2º uso real do shape
+  (`crypto_price_history`); `stock_service.py` atualizado pra usar a versão compartilhada,
+  suite completa (83 testes) confirmada sem regressão antes de seguir.
+- Validado ao vivo (Sessão 5): os 4 indicadores do ETH com valores reais (TVL trend +21,4%,
+  net issuance +0,86% anualizado, fees/emissão 0,015, NVT ratio 0,79), Fear & Greed (73,
+  "Greed"), BTC quote (~US$80.462) e 365 pontos de histórico; cache confirmado; 404 pra
+  indicador/símbolo desconhecido.
+
 ---
 
 ## Débitos Técnicos de Arquitetura

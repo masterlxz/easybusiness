@@ -1,4 +1,11 @@
 from app.models.company import CompanyDcfFundamentals, CompanyPayoutAvg, CompanyRoe
+from app.models.crypto import (
+    CryptoCoinResolution,
+    CryptoFearGreed,
+    CryptoIndicator,
+    CryptoPriceHistory,
+    CryptoQuote,
+)
 from app.models.fii import FiiMonthlyIndicator, FiiProperty
 from app.models.macro_series import MacroSeriesMonthly
 from app.models.stock import (
@@ -21,4 +28,9 @@ __all__ = [
     "CompanyDcfFundamentals",
     "FiiMonthlyIndicator",
     "FiiProperty",
+    "CryptoIndicator",
+    "CryptoFearGreed",
+    "CryptoCoinResolution",
+    "CryptoQuote",
+    "CryptoPriceHistory",
 ]

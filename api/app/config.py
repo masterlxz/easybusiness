@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 3600
     stock_quote_ttl_seconds: int = 300
     cvm_ttl_seconds: int = 86400
+    crypto_quote_ttl_seconds: int = 300
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
