@@ -77,8 +77,10 @@ tomadas.
   mesmo trimestre) — refresh faz **delete-e-insere** o conjunto inteiro do CNPJ numa transação,
   em vez de upsert linha a linha, pra um imóvel que saiu do relatório mais recente não ficar
   "fantasma" na base.
-- TTL: `cvm_ttl_seconds` (novo, padrão 86400s/24h) — bem maior que o das fontes de mercado, dado
-  trimestral/anual.
+- TTL: `cvm_ttl_seconds` (padrão 86400s/24h) — bem maior que o das fontes de mercado, dado
+  trimestral/anual. **Renomeado pra `fundamentals_ttl_seconds` na Sessão 6**, quando bolsai e
+  SEC EDGAR passaram a reusar o mesmo campo (mesma semântica: fundamento trimestral/anual,
+  independente da fonte).
 - **Refatoração**: extraído `app/services/single_row_cache.py` (generaliza o
   `_get_or_refresh_single_row` que só existia dentro de `stock_service.py`) — com CVM esse
   padrão passa a se repetir em 4 lugares (roe, payout, dcf, monthly indicators) além dos 2 já
@@ -128,6 +130,45 @@ tomadas.
   net issuance +0,86% anualizado, fees/emissão 0,015, NVT ratio 0,79), Fear & Greed (73,
   "Greed"), BTC quote (~US$80.462) e 365 pontos de histórico; cache confirmado; 404 pra
   indicador/símbolo desconhecido.
+
+### B3 index stats + Yahoo Metais + bolsai + SEC EDGAR — Sessão 6 (fecha a Fase 1.6)
+
+- **Achado ao reler `stocks.py`**: `acoes_yahoo.fetch_quote`/`fetch_price_history` usam
+  `suffix=".SA"` por padrão e `stock_service.py` nunca sobrescrevia isso — ou seja,
+  `/v1/stocks/{ticker}/...` só serve tickers B3. SEC EDGAR é mercado americano — por isso ganha
+  namespace próprio (`/v1/us-stocks/{ticker}/...`) em vez de reaproveitar `/v1/stocks/`.
+- **B3 index stats** (`api/app/sources/b3_index_stats.py`): catálogo travado a 3 índices já
+  validados pelo Anchor — IFIX (base 2010), SMLL/IDIV (base 2005), ano-base fixo por índice
+  (`app/sources/b3_index_catalog.py`), não exposto como parâmetro. `GET
+  /v1/b3-indexes/{index_code}/history`, upsert `ON CONFLICT DO NOTHING` (histórico imutável).
+  Validado ao vivo: IFIX, 3.885 pontos desde 2010-12-30.
+- **Yahoo Metais** (`api/app/sources/metals_catalog.py`): **sem cliente HTTP próprio** — reusa
+  `acoes_yahoo.fetch_quote`/`fetch_price_history` diretamente com `suffix=""` (metal não é
+  listado na B3), só um catálogo de 4 símbolos (XAU/XAG/XPT/XPD → GC=F/SI=F/PL=F/PA=F). `GET
+  /v1/metals/{metal_code}/quote` e `/price-history`. Preço sempre em onça troy, sem conversão
+  (decisão do dono do projeto, herdada do Anchor). Validado ao vivo: ouro (XAU) cotado
+  corretamente.
+- **bolsai** (`api/app/sources/acoes_bolsai.py`): chave copiada de `anchor/data-collector/.env`
+  (mesma que o Anchor já usa em produção). `GET /v1/stocks/{ticker}/bolsai-fundamentals` — entra
+  no router `stocks.py` já existente (mesmo espaço de tickers BR). Expõe `cvm_code` no retorno,
+  deixando o consumidor encadear pra `/v1/companies/{cvm_code}/...` sem precisar de bolsai por
+  conta própria. **Ressalva conhecida (herdada do Anchor)**: o campo `roe` da bolsai mistura
+  lucro trimestral com TTM dependendo da empresa — exposto como veio da fonte mesmo assim (a
+  Super API é uma camada de dados, não corrige silenciosamente o que a fonte devolve); pra ROE
+  confiável, usar `/v1/companies/{cvm_code}/roe` (calculado direto da CVM). Validado ao vivo:
+  PETR4 → `cvm_code: "9512"`, ROE 28,26%.
+- **SEC EDGAR** (`api/app/sources/sec_edgar.py`): cache de resolução ticker→CIK
+  (`sec_edgar_cik_resolution`), mesmo padrão do `crypto_coin_resolution` — reaproveitado entre
+  `/fundamentals`, `/dcf-fundamentals` e `/payout`. Rate limit ~9 req/s (`_get()` com
+  `time.sleep`, um único timestamp global) portado como está do Anchor — **não é thread-safe
+  sob concorrência** (FastAPI roda rotas síncronas num threadpool); aceitável no tráfego de um
+  MVP, não resolvido com lock agora — registrar aqui se algum dia virar gargalo real. Validado
+  ao vivo (AAPL): LPA 7,46 / VPA 4,99 / ROE 151,9%, EBIT US$133.050mi, alíquota 15,61%, payout
+  médio 5a 15,08% (número real conhecido — a Apple retém a maior parte do lucro pra buyback em
+  vez de dividendo). **JPM (banco) retornou 404 em `/dcf-fundamentals` como esperado** — mesma
+  lacuna de taxonomia (EBIT/estoque/contas a receber-pagar não reportados do jeito
+  não-financeiro) já documentada pelo Anchor, confirmando que a lógica de descarte foi portada
+  corretamente.
 
 ---
 

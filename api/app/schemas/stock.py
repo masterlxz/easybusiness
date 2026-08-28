@@ -79,3 +79,18 @@ class StockDividendPaymentsResponse(BaseModel):
     data: list[StockDividendPaymentPoint]
 
     model_config = {"from_attributes": True}
+
+
+class StockBolsaiFundamentalsResponse(BaseModel):
+    ticker: str
+    source: str
+    cached: bool
+    stale: bool
+    fetched_at: datetime | None
+    lpa: float
+    vpa: float
+    roe: float
+    shares_outstanding: float
+    cvm_code: str
+
+    model_config = {"from_attributes": True}

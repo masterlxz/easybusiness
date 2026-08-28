@@ -30,7 +30,7 @@ def get_roe(
     _: str = Depends(require_api_key),
 ):
     try:
-        return get_or_refresh_roe(db, cvm_code, settings.cvm_ttl_seconds)
+        return get_or_refresh_roe(db, cvm_code, settings.fundamentals_ttl_seconds)
     except CompanyNotFoundError:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"No ROE data available for CVM code {cvm_code}"
@@ -47,7 +47,7 @@ def get_payout(
     _: str = Depends(require_api_key),
 ):
     try:
-        return get_or_refresh_payout(db, cvm_code, settings.cvm_ttl_seconds)
+        return get_or_refresh_payout(db, cvm_code, settings.fundamentals_ttl_seconds)
     except CompanyNotFoundError:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"No payout data available for CVM code {cvm_code}"
@@ -64,7 +64,7 @@ def get_dcf_fundamentals(
     _: str = Depends(require_api_key),
 ):
     try:
-        return get_or_refresh_dcf_fundamentals(db, cvm_code, settings.cvm_ttl_seconds)
+        return get_or_refresh_dcf_fundamentals(db, cvm_code, settings.fundamentals_ttl_seconds)
     except CompanyNotFoundError:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,

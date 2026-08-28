@@ -91,3 +91,25 @@ class StockDividendPayment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class StockBolsaiFundamentals(Base):
+    """Latest bolsai fundamentals snapshot for a ticker — one row per
+    ticker, overwritten on refresh. `roe` is known to be less reliable than
+    the CVM-computed one (see app/sources/acoes_bolsai.py); exposed as-is
+    regardless. `cvm_code` lets a caller chain into
+    `/v1/companies/{cvm_code}/...` without a separate resolution step."""
+
+    __tablename__ = "stock_bolsai_fundamentals"
+
+    ticker: Mapped[str] = mapped_column(String(32), primary_key=True)
+    lpa: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    vpa: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    roe: Mapped[float] = mapped_column(Numeric(10, 4), nullable=False)
+    shares_outstanding: Mapped[float] = mapped_column(Numeric(20, 2), nullable=False)
+    cvm_code: Mapped[str] = mapped_column(String(16), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

@@ -26,7 +26,10 @@ def db_session():
                 "company_roe, company_payout_avg, company_dcf_fundamentals, "
                 "fii_monthly_indicators, fii_properties, "
                 "crypto_indicators, crypto_fear_greed, crypto_coin_resolution, "
-                "crypto_quotes, crypto_price_history"
+                "crypto_quotes, crypto_price_history, "
+                "b3_index_history, metal_quotes, metal_price_history, "
+                "stock_bolsai_fundamentals, sec_edgar_cik_resolution, "
+                "us_stock_fundamentals, us_stock_dcf_fundamentals, us_stock_payout_avg"
             )
         )
         session.commit()

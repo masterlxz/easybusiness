@@ -108,3 +108,26 @@ def test_dividend_payments_returns_200(db_session, monkeypatch):
 
     assert response.status_code == 200
     assert len(response.json()["data"]) == 1
+
+
+def test_bolsai_fundamentals_returns_200(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    fields = {
+        "lpa": 2.5, "vpa": 15.0, "roe": 20.0, "shares_outstanding": 1_000_000.0,
+        "cvm_code": "9512",
+    }
+    with patch("app.services.stock_service.fetch_bolsai_fundamentals", return_value=fields):
+        response = client.get("/v1/stocks/PETR4/bolsai-fundamentals", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 200
+    assert response.json()["cvm_code"] == "9512"
+
+
+def test_bolsai_fundamentals_returns_404_for_unknown_ticker(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    with patch("app.services.stock_service.fetch_bolsai_fundamentals", return_value=None):
+        response = client.get("/v1/stocks/UNKNOWN1/bolsai-fundamentals", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 404

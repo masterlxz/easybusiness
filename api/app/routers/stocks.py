@@ -5,6 +5,7 @@ from app.auth import require_api_key
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.schemas.stock import (
+    StockBolsaiFundamentalsResponse,
     StockDividendPaymentsResponse,
     StockDividendsAvgResponse,
     StockPriceHistoryResponse,
@@ -12,13 +13,16 @@ from app.schemas.stock import (
     StockTechnicalsResponse,
 )
 from app.services.stock_service import (
+    BolsaiTickerNotFoundError,
     NoDividendDataError,
+    get_or_refresh_bolsai_fundamentals,
     get_or_refresh_dividend_payments,
     get_or_refresh_dividends_avg,
     get_or_refresh_price_history,
     get_or_refresh_quote,
     get_or_refresh_technicals,
 )
+from app.sources.acoes_bolsai import BolsaiError
 from app.sources.acoes_yahoo import YahooFinanceError
 
 router = APIRouter(prefix="/v1/stocks/{ticker}", tags=["stocks"])
@@ -93,3 +97,25 @@ def get_dividend_payments(
         return get_or_refresh_dividend_payments(db, ticker, settings.cache_ttl_seconds)
     except YahooFinanceError:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=SOURCE_UNAVAILABLE_DETAIL)
+
+
+@router.get("/bolsai-fundamentals", response_model=StockBolsaiFundamentalsResponse)
+def get_bolsai_fundamentals(
+    ticker: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_api_key),
+):
+    try:
+        return get_or_refresh_bolsai_fundamentals(
+            db, ticker, settings.fundamentals_ttl_seconds, settings.bolsai_api_key
+        )
+    except BolsaiTickerNotFoundError:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail=f"No bolsai fundamentals available for {ticker}"
+        )
+    except BolsaiError:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch data from bolsai and no cached data available",
+        )

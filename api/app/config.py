@@ -9,8 +9,10 @@ class Settings(BaseSettings):
     api_keys: str = ""
     cache_ttl_seconds: int = 3600
     stock_quote_ttl_seconds: int = 300
-    cvm_ttl_seconds: int = 86400
+    fundamentals_ttl_seconds: int = 86400
     crypto_quote_ttl_seconds: int = 300
+    bolsai_api_key: str = ""
+    sec_edgar_contact_email: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

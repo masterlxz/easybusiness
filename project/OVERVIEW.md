@@ -25,7 +25,7 @@ ver `ARCHITECTURE.md`, seção "Decisões de Arquitetura em Aberto").
 # Status Geral
 
 ```
-Fase 1 — Super API Financeira + Super DB (MVP)   [~] Em andamento (1.1-1.5/8 concluídas)
+Fase 1 — Super API Financeira + Super DB (MVP)   [~] Em andamento (1.1-1.6/8 concluídas)
 Fase 2 — Engine Fiscal (SEFAZ)                    [ ] Não iniciada
 Fase 3 — Meta Cloud API & Automação (WhatsApp)    [ ] Não iniciada
 Fase 4 — Workspace Web App                        [ ] Não iniciada
@@ -35,8 +35,8 @@ Fase 4 — Workspace Web App                        [ ] Não iniciada
 
 # Checklist antes do próximo release
 
-Fase 1 em andamento — prova de conceito ponta a ponta funcionando (`api/`: BCB SGS, CDI/IPCA,
-cache-through via Postgres, auth por API key, 14 testes automatizados passando). Faltam as
-etapas 1.6-1.8 (portar as demais fontes do catálogo, migrar o Anchor pra consumir a API,
-documentação pública). Esta seção será preenchida com um checklist de release real quando a
-Fase 1 estiver completa.
+Fase 1 em andamento — as 11 fontes do catálogo original (`CONTEXT.md`) estão todas portadas
+(`api/`: BCB SGS, Yahoo Finance, CVM DFP+FII, cripto, B3 index stats, Yahoo Metais, bolsai, SEC
+EDGAR), cache-through via Postgres, auth por API key, 162 testes automatizados passando. Faltam
+as etapas 1.7-1.8 (migrar o Anchor pra consumir a API, documentação pública). Esta seção será
+preenchida com um checklist de release real quando a Fase 1 estiver completa.

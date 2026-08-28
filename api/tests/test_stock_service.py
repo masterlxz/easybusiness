@@ -4,13 +4,16 @@ from unittest.mock import patch
 import pytest
 
 from app.services.stock_service import (
+    BolsaiTickerNotFoundError,
     NoDividendDataError,
+    get_or_refresh_bolsai_fundamentals,
     get_or_refresh_dividend_payments,
     get_or_refresh_dividends_avg,
     get_or_refresh_price_history,
     get_or_refresh_quote,
     get_or_refresh_technicals,
 )
+from app.sources.acoes_bolsai import BolsaiError
 from app.sources.acoes_yahoo import YahooFinanceError
 
 
@@ -176,3 +179,60 @@ def test_dividends_avg_no_data_with_existing_cache_keeps_serving_it(db_session):
         result = get_or_refresh_dividends_avg(db_session, "PETR4", ttl_seconds=0)
 
     assert float(result["avg_dividend_5y"]) == 1.5
+
+
+# --- bolsai fundamentals ----------------------------------------------
+
+
+def _bolsai_fields():
+    return {"lpa": 2.5, "vpa": 15.0, "roe": 20.0, "shares_outstanding": 1_000_000.0, "cvm_code": "9512"}
+
+
+def test_bolsai_fundamentals_first_call_fetches_and_caches(db_session):
+    with patch(
+        "app.services.stock_service.fetch_bolsai_fundamentals", return_value=_bolsai_fields()
+    ) as mock_fetch:
+        result = get_or_refresh_bolsai_fundamentals(
+            db_session, "PETR4", ttl_seconds=3600, api_key="fake-key"
+        )
+
+    mock_fetch.assert_called_with("PETR4", "fake-key")
+    assert result["cached"] is False
+    assert result["cvm_code"] == "9512"
+
+
+def test_bolsai_fundamentals_second_call_within_ttl_uses_cache(db_session):
+    with patch(
+        "app.services.stock_service.fetch_bolsai_fundamentals", return_value=_bolsai_fields()
+    ) as mock_fetch:
+        get_or_refresh_bolsai_fundamentals(db_session, "PETR4", ttl_seconds=3600, api_key="k")
+        result = get_or_refresh_bolsai_fundamentals(
+            db_session, "PETR4", ttl_seconds=3600, api_key="k"
+        )
+
+    assert mock_fetch.call_count == 1
+    assert result["cached"] is True
+
+
+def test_bolsai_fundamentals_unknown_ticker_without_cache_raises(db_session):
+    with patch("app.services.stock_service.fetch_bolsai_fundamentals", return_value=None):
+        with pytest.raises(BolsaiTickerNotFoundError):
+            get_or_refresh_bolsai_fundamentals(
+                db_session, "UNKNOWN1", ttl_seconds=3600, api_key="k"
+            )
+
+
+def test_bolsai_fundamentals_source_error_with_cache_serves_stale(db_session):
+    with patch(
+        "app.services.stock_service.fetch_bolsai_fundamentals", return_value=_bolsai_fields()
+    ):
+        get_or_refresh_bolsai_fundamentals(db_session, "PETR4", ttl_seconds=0, api_key="k")
+    with patch(
+        "app.services.stock_service.fetch_bolsai_fundamentals",
+        side_effect=BolsaiError("down"),
+    ):
+        result = get_or_refresh_bolsai_fundamentals(
+            db_session, "PETR4", ttl_seconds=0, api_key="k"
+        )
+
+    assert result["stale"] is True

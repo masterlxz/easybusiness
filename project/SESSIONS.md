@@ -201,3 +201,58 @@ ultrasound.money).
 fase: Yahoo Finance, CVM DFP+FII, CoinGecko+DefiLlama+alternative.me+ultrasound.money). Restam
 4: bolsai (única que exige API key própria), B3 index stats, SEC EDGAR, Yahoo Metais. Trabalho
 ainda não commitado — falta confirmar com o dono do projeto antes do push.
+
+### 2026-08-28 — Sessão 6
+
+**Objetivo**: fechar a Fase 1.6 — as últimas 4 fontes do catálogo (B3 index stats, Yahoo
+Metais, bolsai, SEC EDGAR).
+
+**O que foi feito**:
+- Dois bloqueios de credencial resolvidos no início da sessão: `BOLSAI_API_KEY` (o dono do
+  projeto tinha a chave, mas não sabia onde estava salva — encontrada em
+  `anchor/data-collector/.env`, copiada pra `api/.env`) e `SEC_EDGAR_CONTACT_EMAIL` (confirmado
+  com o dono do projeto). Ambas gitignored, nunca commitadas.
+- Escopo confirmado via `AskUserQuestion`: tudo numa fatia só (SEC EDGAR sozinho tem
+  complexidade parecida com a CVM — resolução ticker→CIK, fundamentos+DCF+payout, fallback de
+  tags — mas o dono do projeto preferiu fechar a fase de uma vez), sem REIT fundamentals
+  (capacidade extra do Anchor fora do catálogo original de 12 fontes).
+- Achado ao reler `stocks.py` durante o planejamento: `acoes_yahoo.fetch_quote`/
+  `fetch_price_history` usam `suffix=".SA"` por padrão e nunca eram chamadas com outro valor —
+  `/v1/stocks/{ticker}/...` só serve tickers B3. Por isso SEC EDGAR (mercado americano) ganhou
+  namespace próprio (`/v1/us-stocks/{ticker}/...`) em vez de reaproveitar `/v1/stocks/`.
+- `api/app/sources/b3_index_stats.py` + `b3_index_catalog.py` (catálogo travado: IFIX/SMLL/IDIV,
+  ano-base fixo por índice).
+- `api/app/sources/metals_catalog.py` — **sem cliente HTTP novo**, reusa
+  `acoes_yahoo.fetch_quote`/`fetch_price_history` direto com `suffix=""` (só um catálogo de 4
+  símbolos XAU/XAG/XPT/XPD).
+- `api/app/sources/acoes_bolsai.py` (fundamentos BR, expõe `cvm_code` pra encadear com
+  `/v1/companies/...`; `roe` exposto como vem da fonte, com ressalva de confiabilidade
+  documentada) e `api/app/sources/sec_edgar.py` (fundamentos/DCF/payout US, resolução
+  ticker→CIK cacheada, rate limit ~9 req/s portado do Anchor).
+- Renomeado `cvm_ttl_seconds` → `fundamentals_ttl_seconds` em `config.py`/`.env`/
+  `.env.example`/`companies.py`/`fiis.py` — bolsai e SEC EDGAR reusam o mesmo campo (3º uso da
+  mesma semântica: fundamento trimestral/anual).
+- 8 tabelas novas (migration `0005`): `b3_index_history`, `metal_quotes`,
+  `metal_price_history`, `stock_bolsai_fundamentals`, `sec_edgar_cik_resolution`,
+  `us_stock_fundamentals`, `us_stock_dcf_fundamentals`, `us_stock_payout_avg`.
+- Serviços: `b3_index_service.py`, `metal_service.py`, `us_stock_service.py` (resolução de CIK
+  reaproveitada entre os 3 endpoints, mesmo padrão do `crypto_coin_resolution`), e
+  `stock_service.py` ganhou `get_or_refresh_bolsai_fundamentals`.
+- 7 rotas novas: `GET /v1/b3-indexes/{index_code}/history`, `GET /v1/metals/{metal_code}/
+  {quote,price-history}`, `GET /v1/stocks/{ticker}/bolsai-fundamentals` (no router já
+  existente), `GET /v1/us-stocks/{ticker}/{fundamentals,dcf-fundamentals,payout}`.
+- 49 novos testes automatizados (mockados) — incluindo o SEC EDGAR com fixtures de tags XBRL
+  fiéis ao formato real (duration/instant rows) — todos passaram; suite completa: 162 testes.
+- Validado ao vivo contra as 4 APIs reais: IFIX com 3.885 pontos desde 2010; ouro (XAU)
+  cotado; bolsai/PETR4 retornando `cvm_code: "9512"` (bate com o CVM); **SEC EDGAR/AAPL com
+  payout médio 5a de 15,08% — número real e bem conhecido (a Apple retém a maior parte do lucro
+  pra buyback em vez de dividendo)**, forte confirmação da lógica portada; **JPM (banco)
+  retornou 404 em `/dcf-fundamentals` como esperado**, confirmando que a lacuna de taxonomia
+  bancária documentada pelo Anchor foi reproduzida corretamente; cache/401/404 confirmados em
+  todos os endpoints novos.
+- `project/PHASE.md`, `ARCHITECTURE.md` e `OVERVIEW.md` atualizados.
+
+**Estado ao final**: **Fase 1.6 completa — as 11 fontes do catálogo original portadas.**
+Próximo passo natural: Fase 1.7 (migrar o Anchor pra consumir a Super API em vez de rodar
+`data-collector/main.py` localmente) ou Fase 1.8 (documentação pública da API). Trabalho ainda
+não commitado — falta confirmar com o dono do projeto antes do push.

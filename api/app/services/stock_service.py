@@ -16,6 +16,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.stock import (
+    StockBolsaiFundamentals,
     StockDividendPayment,
     StockDividendsAvg,
     StockPriceHistory,
@@ -24,6 +25,8 @@ from app.models.stock import (
 )
 from app.services.append_only_list_cache import get_or_refresh_list
 from app.services.single_row_cache import get_or_refresh_single_row
+from app.sources.acoes_bolsai import BolsaiError
+from app.sources.acoes_bolsai import fetch_fundamentals as fetch_bolsai_fundamentals
 from app.sources.acoes_yahoo import (
     YahooFinanceError,
     fetch_dividend_payments,
@@ -34,11 +37,18 @@ from app.sources.acoes_yahoo import (
 )
 
 SOURCE_NAME = "yahoo_finance"
+BOLSAI_SOURCE_NAME = "bolsai"
 
 
 class NoDividendDataError(ValueError):
     """Raised when a ticker has no dividend history and no cache exists —
     a legitimate absence of data, not a source failure."""
+
+
+class BolsaiTickerNotFoundError(ValueError):
+    """Raised when bolsai doesn't recognize a ticker (404) and no cache
+    exists — bolsai only covers stocks, not FIIs, so this is expected for
+    some valid B3 tickers."""
 
 
 def get_or_refresh_quote(db: Session, ticker: str, ttl_seconds: int) -> dict:
@@ -119,6 +129,30 @@ def get_or_refresh_price_history(db: Session, ticker: str, ttl_seconds: int) -> 
         "stale": stale,
         "fetched_at": max((r.fetched_at for r in rows), default=None),
         "data": rows,
+    }
+
+
+def get_or_refresh_bolsai_fundamentals(
+    db: Session, ticker: str, ttl_seconds: int, api_key: str
+) -> dict:
+    def _fetch(_ticker):
+        return fetch_bolsai_fundamentals(_ticker, api_key)
+
+    row, cached, stale = get_or_refresh_single_row(
+        db, StockBolsaiFundamentals, StockBolsaiFundamentals.ticker, ticker, ttl_seconds,
+        _fetch, BOLSAI_SOURCE_NAME, BolsaiError, BolsaiTickerNotFoundError,
+    )
+    return {
+        "ticker": ticker,
+        "source": BOLSAI_SOURCE_NAME,
+        "cached": cached,
+        "stale": stale,
+        "fetched_at": row.fetched_at,
+        "lpa": row.lpa,
+        "vpa": row.vpa,
+        "roe": row.roe,
+        "shares_outstanding": row.shares_outstanding,
+        "cvm_code": row.cvm_code,
     }
 
 

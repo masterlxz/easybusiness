@@ -25,7 +25,7 @@ def get_monthly_indicators(
     _: str = Depends(require_api_key),
 ):
     try:
-        return get_or_refresh_monthly_indicators(db, cnpj, settings.cvm_ttl_seconds)
+        return get_or_refresh_monthly_indicators(db, cnpj, settings.fundamentals_ttl_seconds)
     except FundNotFoundError:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail=f"No monthly indicators available for CNPJ {cnpj}"
@@ -42,6 +42,6 @@ def get_properties(
     _: str = Depends(require_api_key),
 ):
     try:
-        return get_or_refresh_properties(db, cnpj, settings.cvm_ttl_seconds)
+        return get_or_refresh_properties(db, cnpj, settings.fundamentals_ttl_seconds)
     except CvmFiiDataError:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=SOURCE_UNAVAILABLE_DETAIL)
