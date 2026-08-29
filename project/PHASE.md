@@ -34,6 +34,21 @@ o Anchor faz de forma isolada (`data-collector/`), expondo tudo via uma API HTTP
   sobe, `docs` gera a referência contra `http://api:8000/openapi.json`, `next build` compila as
   34 páginas sem erro, `/docs`/`/docs/reference/...`/`/docs/concepts/...`/busca respondem 200 com
   conteúdo real. **Fase 1 completa.**
+- [x] 1.9 — Deploy público dos docs no GitHub Pages (Sessão 8, mesmo dia): pedido explícito do
+  dono do projeto, subpath padrão do GitHub Pages (`https://masterlxz.github.io/easybusiness/docs/`,
+  sem domínio próprio). `next.config.ts` ganhou export estático condicional (`output: "export"` +
+  `basePath` só quando `NEXT_BASE_PATH` está setada — dev/docker-compose continuam dinâmicos, sem
+  mudança). `.github/workflows/deploy-docs.yml` (mesmo padrão do TruthID: `actions/checkout` →
+  build → `actions/deploy-pages`) gera um snapshot do schema OpenAPI **sem precisar de banco nem
+  API rodando** — `app.openapi()` é reflexão pura sobre rotas/schemas Pydantic, `create_engine()`
+  nunca conecta de fato, então um `DATABASE_URL` placeholder basta só pra importar `app.main`
+  (confirmado idêntico byte-a-byte contra o schema real antes de commitar essa abordagem).
+  `scripts/generate-reference.mjs`/`lib/openapi.ts` ganharam um segundo modo
+  (`OPENAPI_SCHEMA_PATH`, arquivo local) ao lado do HTTP existente, sem mudar o comportamento de
+  dev. GitHub Pages habilitado no repo via `gh api repos/.../pages` (`build_type: workflow`).
+  Validado ao vivo antes do push: build estático local com `NEXT_BASE_PATH=/easybusiness` — todo
+  link/asset/favicon no HTML gerado já sai prefixado `/easybusiness/...` corretamente, página de
+  referência real renderizada, índice de busca virou arquivo estático.
 
 ### Fase 2 — Engine Fiscal (SEFAZ)
 

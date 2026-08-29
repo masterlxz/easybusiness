@@ -391,4 +391,51 @@ que o real) pra "Finance API"/"Finance DB"; depois, Fase 1.8 — documentação 
 **Estado ao final**: Fase 1 do EasyBusiness **completa** (8/8 etapas). Próximo passo natural:
 Fase 2 (Engine Fiscal/SEFAZ) do blueprint original, ou considerar a "Fase 1.6b" registrada em
 `ROADMAP.md` se um consumidor futuro precisar do que ficou fora da migração híbrida do Anchor.
-Trabalho ainda não commitado — falta confirmar com o dono do projeto antes do push.
+Commitado e pushado (`ea46e5b..af59ff3`).
+
+### 2026-08-29 — Sessão 9
+
+**Objetivo**: pedido explícito do dono do projeto — deploy público dos docs no GitHub Pages
+(1.9, item que a Sessão 8 tinha deixado deliberadamente de fora do escopo).
+
+**O que foi feito**:
+- Escopo fechado via `AskUserQuestion`: subpath padrão do GitHub Pages
+  (`masterlxz.github.io/easybusiness/docs/`), sem domínio próprio.
+- `next.config.ts`: export estático condicional — `output: "export"` + `basePath` só quando
+  `NEXT_BASE_PATH` está setada (mesmo padrão do TruthID); sem a env var (dev/docker-compose),
+  comportamento dinâmico intocado.
+- **Achado de design antes de codar**: gerar a referência de endpoints em CI precisa do schema
+  OpenAPI, mas a API não está deployada publicamente (self-host, MVP) — rodar Postgres+API
+  inteiros só pra isso no CI seria desproporcional. Confirmado que dá pra evitar: `app.openapi()`
+  é reflexão pura sobre rotas/schemas Pydantic (sem I/O), e `create_engine()`
+  (`api/app/database.py`) nunca conecta de fato na importação — só valida o dialeto/driver. Um
+  `DATABASE_URL` placeholder basta pra importar `app.main` e gerar o schema sem banco nenhum.
+  **Verificado antes de commitar**: schema gerado com placeholder é **idêntico byte-a-byte** ao
+  gerado contra a API real rodando (`diff` limpo).
+- `scripts/generate-reference.mjs`/`lib/openapi.ts` ganharam um segundo modo
+  (`OPENAPI_SCHEMA_PATH`, lê de um arquivo local) ao lado do modo HTTP existente — mesma lógica
+  de resolução nos dois arquivos, já que o "document" embutido no MDX gerado precisa bater com o
+  que `openapi.preloadOpenAPIPage()` resolve depois, do jeito que a Sessão 8 já tinha desenhado.
+- `.github/workflows/deploy-docs.yml` (novo, mesmo padrão do TruthID —
+  `actions/checkout`→build→`actions/deploy-pages`, sem o passo de remoção de rotas nem o repo
+  APT que o deles tem, porque o EasyBusiness não tem conta de usuário nem instalador nativo):
+  gera o snapshot do schema (passo Python, `DATABASE_URL` placeholder), builda o export estático
+  (`NEXT_BASE_PATH=/easybusiness`, `OPENAPI_SCHEMA_PATH=./openapi.json`), publica via
+  `actions/upload-pages-artifact`+`actions/deploy-pages`. Dispara em push tocando `docs/`,
+  `api/app/`, `api/requirements.txt`, ou o workflow em si.
+- GitHub Pages habilitado no repo via `gh api repos/masterlxz/easybusiness/pages -X POST -f
+  build_type=workflow` (não tinha Pages nenhum configurado antes).
+- Validado ao vivo, localmente, antes do push: `npm run build` com `NEXT_BASE_PATH=/easybusiness`
+  e `OPENAPI_SCHEMA_PATH` de verdade — todo link/asset/favicon no HTML gerado (`out/`) já sai
+  prefixado `/easybusiness/...` corretamente, uma página de referência real com conteúdo
+  renderizado, índice de busca virou arquivo estático (`out/api/search`). Achado no caminho, sem
+  relação com a feature em si: rodar o container `docs` (dev mode) e depois testar `next build`
+  local no host deixa `node_modules`/`.next`/`content/docs/reference`/`next-env.d.ts` root-owned
+  no bind mount (mesmo motivo de sempre — o container roda sem `user: "1000:1000"`, ver Sessão 8)
+  — limpo via `docker run --rm -v ... node:20-bookworm-slim rm -rf ...` em vez de precisar de
+  `sudo` no host.
+- `README.md` (link pro site publicado) e `project/PHASE.md` (nova etapa 1.9) atualizados.
+
+**Estado ao final**: docs publicados (workflow criado, Pages habilitado, primeiro deploy dispara
+no próximo push que tocar `docs/`). Trabalho ainda não commitado — falta confirmar com o dono do
+projeto antes do push.

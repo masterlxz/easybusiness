@@ -37,7 +37,9 @@ docker compose exec api pytest -v
 
 `docker compose up` também sobe a documentação pública em `http://localhost:3000/docs`
 (referência de endpoints gerada ao vivo a partir do `/openapi.json` da própria API, mais guias
-de autenticação, cache e catálogo de fontes).
+de autenticação, cache e catálogo de fontes) — versão publicada em
+[masterlxz.github.io/easybusiness/docs](https://masterlxz.github.io/easybusiness/docs/)
+(deploy automático via `.github/workflows/deploy-docs.yml` a cada push em `docs/`/`api/app/`).
 
 ## Status
 

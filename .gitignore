@@ -17,7 +17,10 @@ api/.cache/
 docs/node_modules/
 docs/.next/
 docs/.source/
+docs/out/
 docs/next-env.d.ts
 docs/tsconfig.tsbuildinfo
 # generated from the live OpenAPI schema (scripts/generate-reference.mjs) — never hand-edit
 docs/content/docs/reference/
+# CI-only schema snapshot (.github/workflows/deploy-docs.yml) — never committed
+docs/openapi.json

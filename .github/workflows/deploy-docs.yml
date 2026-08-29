@@ -1,0 +1,92 @@
+name: Deploy Docs
+
+# Builds and publishes docs/ (Next.js + Fumadocs) as a static export to
+# GitHub Pages, served at /easybusiness/docs/ (basePath, no custom domain —
+# see project/PHASE.md, Fase 1.8). The endpoint reference is generated from
+# a snapshot of the FastAPI OpenAPI schema, produced without running the
+# actual API server or a real database — `app.openapi()` is pure reflection
+# over routes/Pydantic models, `create_engine()` never connects eagerly, so
+# a placeholder DATABASE_URL is enough just to import app.main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "api/app/**"
+      - "api/requirements.txt"
+      - ".github/workflows/deploy-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Avoids two deploys racing over the same Pages environment
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install API dependencies
+        working-directory: api
+        run: pip install -r requirements.txt
+
+      - name: Generate OpenAPI schema snapshot
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql+psycopg://placeholder:placeholder@localhost/placeholder
+        run: |
+          python -c "
+          import json
+          from app.main import app
+          print(json.dumps(app.openapi()))
+          " > ../docs/openapi.json
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install docs dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build static export
+        working-directory: docs
+        env:
+          NEXT_BASE_PATH: /easybusiness
+          OPENAPI_SCHEMA_PATH: ./openapi.json
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
