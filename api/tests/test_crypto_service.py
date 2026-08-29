@@ -43,6 +43,27 @@ def test_indicator_unknown_code_raises(db_session):
         get_or_refresh_eth_indicator(db_session, "unknown-code", ttl_seconds=3600)
 
 
+def test_indicator_resolves_each_of_the_4_coinmetrics_codes(db_session):
+    """Integration check that the 4 new catalog entries (Fase de
+    automação do CoinMetrics) are wired end-to-end through
+    get_or_refresh_eth_indicator, same as the original 4 codes above."""
+    codes_and_patches = [
+        ("mvrv-z-score", "app.sources.cripto_coinmetrics.fetch_mvrv_z_score"),
+        ("puell-multiple", "app.sources.cripto_coinmetrics.fetch_puell_multiple"),
+        ("exchange-netflow", "app.sources.cripto_coinmetrics.fetch_exchange_netflow_ratio"),
+        (
+            "active-addresses-trend",
+            "app.sources.cripto_coinmetrics.fetch_active_addresses_trend_mom",
+        ),
+    ]
+    for code, patch_target in codes_and_patches:
+        with patch(patch_target, return_value=1.5):
+            result = get_or_refresh_eth_indicator(db_session, code, ttl_seconds=3600)
+
+        assert float(result["raw_value"]) == 1.5
+        assert result["source"] == "coinmetrics"
+
+
 def test_indicator_source_error_with_cache_serves_stale(db_session):
     with patch(
         "app.sources.cripto_defillama.fetch_tvl_trend_mom", return_value=12.5

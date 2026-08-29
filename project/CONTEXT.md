@@ -58,10 +58,11 @@ um cliente dentro da Finance API em vez de um script Python isolado:
 | DefiLlama (`cripto_defillama.py`) | DeFi | TVL de chains/protocolos | Série diária |
 | alternative.me (`cripto_feargreed.py`) | Cripto | Crypto Fear & Greed Index | |
 | ultrasound.money (`cripto_ultrasound.py`) | Ethereum | Supply/net issuance do ETH | |
+| CoinMetrics Community API (`cripto_coinmetrics.py`) | Ethereum | Market cap, MVRV, endereços ativos, emissão, fluxo de exchange | Sem chave, histórico completo desde 2015 — primeira fonte deste catálogo que **não** veio herdada do Anchor (Sessão 12, ver `PHASE.md`) |
 
-**Não migrado ainda / fora do catálogo**: qualquer fonte que o Anchor venha a adicionar depois
-da Sessão 1 (o projeto segue evoluindo em paralelo) — conferir
-`anchor/data-collector/sources/` antes de considerar este catálogo definitivo.
+**Não migrado ainda / fora do catálogo**: o `data-collector/` original do Anchor foi apagado por
+completo na Fase 14.5 dele (Sessão 92) — o catálogo acima já cobre tudo que ele fazia. Fontes
+novas que o Anchor venha a precisar de agora em diante entram direto aqui, não lá.
 
 ## Fluxo de Dados (visão MVP)
 

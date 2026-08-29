@@ -494,3 +494,38 @@ só do lado EasyBusiness (Fase 1.10 — a fatia menor, autocontida, que desbloqu
 código do lado Anchor foi tocado ainda — decisão explícita do dono do projeto de escopar esta
 sessão só na fatia menor/autocontida. Trabalho ainda não commitado — falta confirmar com o dono
 do projeto antes do commit/push.
+
+### 2026-08-29 — Sessão 11
+
+**Objetivo**: pedido feito do lado do Anchor, continuando de onde a Sessão 91 dele parou — fechar
+a Fase 1.11 (as 4 capacidades sem endpoint equivalente que a migração híbrida, Fase 1.7, tinha
+deixado local no `data-collector/` do Anchor). Sessão cross-repo, implementação toda do lado
+EasyBusiness; commit `b4aa8d1`.
+
+**O que foi feito** (3 sub-fatias, todas verificadas ao vivo antes de fechar):
+- **1.11.1** — cotação/técnicos/dividendos/histórico de preço/proventos pra ticker sem sufixo
+  `.SA` (ação americana comum, ETF-US, REIT, índices sem sufixo tipo IBOV/`^BVSP`):
+  `acoes_yahoo.py` já aceitava `suffix=""` desde a Fase 1.6, só faltava a camada de API por cima
+  — `models`/`services`/`schemas`/`routers` de `us_stock` ganharam 5 tabelas novas e 5 endpoints
+  sob `/v1/us-stocks/{ticker}/quote,technicals,dividends-avg,price-history,dividend-payments`.
+  IBOV não ganhou endpoint próprio — passa pelos mesmos, mesma decisão que o `data-collector` do
+  Anchor já tomava (`collect_us_price_history(["^BVSP"])` reaproveitando a função genérica).
+- **1.11.2** — indicadores imobiliários de REIT via SEC EDGAR (`fetch_reit_fundamentals`
+  portado pro `sec_edgar.py`), `GET /v1/us-stocks/{ticker}/reit-fundamentals`. Tabela nova
+  `reit_fundamentals` é time-series (append-only, `get_or_refresh_list` reaproveitado com o ano
+  no lugar da data), não single-row — a resposta é a série histórica completa.
+- **1.11.3** — resolução ticker→CNPJ de FII: `acoes_bolsai.fetch_fii_summary` +
+  `cvm_fii.resolve_cnpj` portados do Anchor, `GET /v1/fiis/resolve/{ticker}` (router separado do
+  `{cnpj}`-prefixado existente, sem colisão de rota). **Achado real corrigido antes de fechar**:
+  o arquivo `geral` da CVM devolve o CNPJ do fundo pontuado (18 caracteres), mas a coluna nova é
+  `String(14)` (só dígitos) — sem normalizar, o insert quebrava com `StringDataRightTruncation`.
+  Confirmado ao vivo contra HGLG11 real, que hoje responde como "PÁTRIA LOG" (não mais "CSHG
+  Logística" — o fundo trocou de administrador/nome desde a implementação original no Anchor).
+- **Verificado ao vivo**: AAPL (5 endpoints do 1.11.1), `^BVSP`/IBOV (quote + 2483 pregões de
+  histórico), Realty Income e Simon Property (REIT, incluindo o fallback `NetIncomeLoss`→
+  `ProfitLoss` da Simon Property), HGLG11 (resolução real, cache confirmado na 2ª chamada). Suite
+  completa **196/196** sem regressão.
+
+**Estado ao final**: Fase 1.11 completa — desbloqueia o resto da Fase 14.4 do Anchor
+(`main_us_stock`/`main_reit`/`main_etf_us`, benchmarks, `resolve_fii_cnpj`), que fechou na sessão
+seguinte do lado dele (ver `SESSIONS.md` do Anchor, Sessão 92).

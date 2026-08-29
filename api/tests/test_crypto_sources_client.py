@@ -5,6 +5,12 @@ import pytest
 import requests
 
 from app.sources.cripto_coingecko import fetch_market_chart, fetch_nvt_ratio_vs_ma90, resolve_coin_id
+from app.sources.cripto_coinmetrics import (
+    fetch_active_addresses_trend_mom,
+    fetch_exchange_netflow_ratio,
+    fetch_mvrv_z_score,
+    fetch_puell_multiple,
+)
 from app.sources.cripto_defillama import fetch_tvl_trend_mom
 from app.sources.cripto_feargreed import fetch_latest
 from app.sources.cripto_ultrasound import fetch_fees_vs_emission_ratio, fetch_net_issuance_annualized_pct
@@ -164,3 +170,86 @@ def test_coingecko_wraps_network_error():
     ):
         with pytest.raises(CryptoDataError):
             fetch_market_chart("ethereum")
+
+
+# --- CoinMetrics -------------------------------------------------------
+
+
+def _coinmetrics_response(rows):
+    return _fake_response({"data": rows})
+
+
+def test_fetch_mvrv_z_score_computes_z_score():
+    # market_caps=[100,200], CapMVRVCur=[1,2] -> realized_caps=[100,100]
+    # (constant) -> stddev(market_caps)=50 -> Z = (200-100)/50 = 2.0
+    rows = [
+        {"time": "t0", "CapMrktCurUSD": "100.0", "CapMVRVCur": "1.0"},
+        {"time": "t1", "CapMrktCurUSD": "200.0", "CapMVRVCur": "2.0"},
+    ]
+    with patch(
+        "app.sources.cripto_coinmetrics.requests.get",
+        return_value=_coinmetrics_response(rows),
+    ):
+        result = fetch_mvrv_z_score()
+
+    assert result == pytest.approx(2.0)
+
+
+def test_fetch_puell_multiple_computes_ratio():
+    rows = [{"time": f"t{i}", "IssTotUSD": "100.0"} for i in range(365)] + [
+        {"time": "t365", "IssTotUSD": "200.0"}
+    ]
+    with patch(
+        "app.sources.cripto_coinmetrics.requests.get",
+        return_value=_coinmetrics_response(rows),
+    ):
+        result = fetch_puell_multiple()
+
+    expected_ma = (364 * 100.0 + 200.0) / 365
+    assert result == pytest.approx(200.0 / expected_ma)
+
+
+def test_fetch_puell_multiple_raises_with_insufficient_history():
+    rows = [{"time": f"t{i}", "IssTotUSD": "100.0"} for i in range(10)]
+    with patch(
+        "app.sources.cripto_coinmetrics.requests.get",
+        return_value=_coinmetrics_response(rows),
+    ):
+        with pytest.raises(CryptoDataError):
+            fetch_puell_multiple()
+
+
+def test_fetch_active_addresses_trend_mom_computes_percent_change():
+    rows = [{"time": f"t{i}", "AdrActCnt": "100.0"} for i in range(30)] + [
+        {"time": "t30", "AdrActCnt": "110.0"}
+    ]
+    with patch(
+        "app.sources.cripto_coinmetrics.requests.get",
+        return_value=_coinmetrics_response(rows),
+    ):
+        result = fetch_active_addresses_trend_mom()
+
+    assert result == pytest.approx(10.0)
+
+
+def test_fetch_exchange_netflow_ratio_computes_bounded_ratio():
+    rows = [
+        {"time": f"t{i}", "FlowInExUSD": "10.0", "FlowOutExUSD": "20.0"} for i in range(30)
+    ]
+    with patch(
+        "app.sources.cripto_coinmetrics.requests.get",
+        return_value=_coinmetrics_response(rows),
+    ):
+        result = fetch_exchange_netflow_ratio()
+
+    # inflow=300, outflow=600, total=900 -> (300-600)/900 = -1/3
+    assert result == pytest.approx(-1 / 3)
+
+
+def test_coinmetrics_wraps_network_error():
+    with patch(
+        "app.sources.cripto_coinmetrics.requests.get",
+        side_effect=requests.ConnectionError("boom"),
+    ):
+        with pytest.raises(CryptoDataError):
+            fetch_mvrv_z_score()

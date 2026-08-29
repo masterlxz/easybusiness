@@ -98,6 +98,29 @@ o Anchor faz de forma isolada (`data-collector/`), expondo tudo via uma API HTTP
   cache confirmado na 2ª chamada). Suite completa **196/196** sem regressão. Fecha a Fase 1.11 —
   desbloqueia o resto da Fase 14.4 do Anchor (`main_us_stock`/`main_reit`/`main_etf_us`,
   benchmarks, `resolve_fii_cnpj`).
+- [x] 1.12 — 4 indicadores ETH novos, via CoinMetrics Community API (Sessão 12): o dashboard de
+  cripto do Anchor tinha 5 dos 9 indicadores de topo de ciclo do ETH manuais desde as Sessões
+  5/6/21 (MVRV Z-Score, Puell Multiple, Exchange Netflow, Staking Yield, Active Addresses Trend)
+  por falta de fonte gratuita conhecida na época (só Glassnode/CryptoQuant/Etherscan Pro/
+  stakingrewards.com, todos pagos). Pesquisa nova (não só por memória — testada ao vivo contra a
+  API real) achou a CoinMetrics Community API (`community-api.coinmetrics.io`, sem chave, sem
+  cadastro, ETH com histórico diário completo desde 2015-08-08, ~4048 pontos, 1000 req/10min por
+  IP) cobrindo 4 dos 5: `CapMrktCurUSD`+`CapMVRVCur` (MVRV Z-Score, `RealizedCap` derivado —
+  `CapRealUSD` cru vem bloqueado no tier grátis, mas a razão pronta não), `IssTotUSD` (Puell
+  Multiple), `AdrActCnt` (Active Addresses Trend), `FlowInExUSD`/`FlowOutExUSD` (Exchange
+  Netflow). Staking Yield continua sem fonte grátis (beaconcha.in parou de aceitar chamada sem
+  chave em 2026, testado ao vivo; CoinMetrics não tem métrica de ETH staked no tier grátis) —
+  segue manual. `api/app/sources/cripto_coinmetrics.py` novo (4 funções, mesmo estilo dos outros
+  3 clientes cripto) + 4 entradas novas em `crypto_indicator_catalog.py`
+  (`mvrv-z-score`/`puell-multiple`/`exchange-netflow`/`active-addresses-trend`) — **nenhum
+  router/schema/service/migration novo**, o endpoint genérico `GET /v1/crypto/eth-indicators/
+  {indicator_code}` (Sessão 5) já resolvia qualquer código do catálogo. **Achado real ao vivo**:
+  `page_size` do tier grátis tem teto de 10000 (não documentado nos resultados de busca
+  consultados) — a primeira tentativa com `page_size=20000` (achando que "quanto maior, melhor"
+  garantiria pegar a série inteira) quebrou com 400 antes de eu confirmar o teto real via
+  request direto. Verificado ao vivo os 4 endpoints novos com valores plausíveis (MVRV Z-Score
+  0.15, Puell Multiple 0.98, Exchange Netflow -0.029, Active Addresses Trend -6.3%), cache
+  confirmado na 2ª chamada. Suite completa **203/203** sem regressão (+7 testes novos).
 
 ### Fase 2 — Engine Fiscal (SEFAZ)
 
