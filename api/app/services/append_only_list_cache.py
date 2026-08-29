@@ -12,9 +12,9 @@ import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.services.db_dialect import upsert_insert
 from app.services.freshness import is_fresh
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def get_or_refresh_list(
             now = datetime.now(timezone.utc)
             rows = [row_from_item(id_value, item, now) for item in items]
             if rows:
-                stmt = insert(model).values(rows)
+                stmt = upsert_insert(db.get_bind())(model).values(rows)
                 stmt = stmt.on_conflict_do_nothing(index_elements=[id_column, date_column])
                 db.execute(stmt)
                 db.commit()

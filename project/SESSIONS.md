@@ -439,3 +439,58 @@ Commitado e pushado (`ea46e5b..af59ff3`).
 **Estado ao final**: docs publicados (workflow criado, Pages habilitado, primeiro deploy dispara
 no próximo push que tocar `docs/`). Trabalho ainda não commitado — falta confirmar com o dono do
 projeto antes do push.
+
+### 2026-08-29 — Sessão 10
+
+**Objetivo**: pedido do dono do projeto, feito do lado do Anchor — apagar `data-collector/` de
+vez, rodando a versão free/self-hosted da Finance API "já instalada" localmente (sem setup
+manual, sem Docker/Postgres pro usuário final) e deixando um espaço de configuração pra uma
+futura instância Cloud paga do EasyBusiness. Sessão cross-repo: planejamento completo (2 agentes,
+`Explore`/`Plan`) feito do lado do Anchor, cobrindo os dois repos; implementação de código real
+só do lado EasyBusiness (Fase 1.10 — a fatia menor, autocontida, que desbloqueia o resto).
+
+**O que foi feito**:
+- **Decisão de empacotamento**, confirmada com o dono via `AskUserQuestion`: binário compilado
+  (mesmo padrão PyInstaller que `data-collector/` já usa no Anchor desde a Fase 11.3 dele), não
+  Docker Compose gerenciado pelo Anchor nem lib pip — motivo: zero dependência de Docker pro
+  usuário final de um app desktop público, zero pasta Python no Anchor, mecanismo já provado
+  neste exato par de repos.
+- Levantamento antes de codar: confirmado que `api/app/database.py`/`config.py`/`auth.py` já
+  são inteiramente dialect/env-agnósticos (nenhuma mudança neles foi necessária) — o único
+  obstáculo real pra rodar contra SQLite eram 3 arquivos usando
+  `sqlalchemy.dialects.postgresql.insert` explicitamente.
+- `app/services/db_dialect.py` (novo): dispatcher que escolhe `sqlalchemy.dialects.sqlite.insert`
+  ou `...postgresql.insert` a partir do dialeto da conexão em runtime — API idêntica nos dois
+  (`on_conflict_do_update`/`on_conflict_do_nothing`, mesmo `.excluded`), SQLite ≥3.24 suporta
+  `ON CONFLICT` nativo. Trocado em `single_row_cache.py`, `append_only_list_cache.py`,
+  `macro_series_service.py` — os 3 únicos pontos Postgres-specific do código (confirmado via
+  grep em `models/`/`migrations/versions/` que não há mais nenhum).
+- `api/sidecar_main.py` (novo): entrypoint separado do `uvicorn app.main:app` normal — roda
+  Alembic programaticamente até `head` antes de servir (mesmo histórico de migrations do path
+  Postgres, evolui um db local existente entre versões do app consumidor, ao contrário de
+  `Base.metadata.create_all()`), sobe uvicorn passando o objeto `app` importado direto (não a
+  string `"app.main:app"` — binário PyInstaller-frozen não resolve import dinâmico do jeito que
+  o reload/multi-worker do uvicorn espera), porta OS-assigned (ou `PORT` do env) anunciada via
+  `SIDECAR_PORT=<porta>` na primeira linha do stdout — sinal de prontidão pro processo
+  embutidor (Anchor, ainda não desenhado — Fase 14.2 dele).
+- `api/requirements-sidecar-build.txt` (novo, só `pyinstaller`, mesmo padrão do
+  `requirements-build.txt` do `data-collector/` do Anchor).
+- **Validado ao vivo, não só em teoria**: instalado `api/requirements.txt` num venv descartável,
+  rodado `sidecar_main.py` interpretado contra `sqlite:////tmp/...db` — Alembic criou as 22
+  tabelas das 5 migrations, `/healthz` respondeu 200, `/v1/macro-series/cdi` e `/ipca` fizeram
+  fetch real na API do BCB SGS e fizeram upsert de verdade no SQLite (exercitando o dialect fix
+  de ponta a ponta, não só import). Repetido depois com `pyinstaller --onefile` de verdade (não
+  só o script) — binário compilado subiu e respondeu igual. `docker compose exec api pytest -v`
+  (suite completa, path Postgres) continua 162/162 depois do refactor do dialeto — sem
+  regressão.
+- Planejamento do restante (não implementado agora, registrado pra sessões futuras): Fase 1.11
+  do EasyBusiness (fechar o gap de 4 capacidades da antiga "1.6b" — ver `ROADMAP.md`) e Fase 14
+  do Anchor (CI que builda/embute o sidecar via checkout do easybusiness num ref fixado, lifecycle
+  do processo + client HTTP em Rust, Settings Local/Remote, porta do fetch+write Python→Rust por
+  classe de ativo, limpeza final do `data-collector/`) — desenho completo no `PHASE.md` do Anchor,
+  não reproduzido aqui.
+
+**Estado ao final**: Fase 1.10 completa e validada ao vivo (interpretado + compilado). Nenhum
+código do lado Anchor foi tocado ainda — decisão explícita do dono do projeto de escopar esta
+sessão só na fatia menor/autocontida. Trabalho ainda não commitado — falta confirmar com o dono
+do projeto antes do commit/push.

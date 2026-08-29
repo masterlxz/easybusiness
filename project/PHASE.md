@@ -49,6 +49,29 @@ o Anchor faz de forma isolada (`data-collector/`), expondo tudo via uma API HTTP
   Validado ao vivo antes do push: build estático local com `NEXT_BASE_PATH=/easybusiness` — todo
   link/asset/favicon no HTML gerado já sai prefixado `/easybusiness/...` corretamente, página de
   referência real renderizada, índice de busca virou arquivo estático.
+- [x] 1.10 — Modo SQLite "free/local" (Sessão 10): pedido do dono do projeto pra fechar o
+  ciclo Open-Core registrado em `ROADMAP.md` — o Anchor precisa rodar a Finance API localmente
+  sem Docker/Postgres, "já instalada", como binário sidecar compilado (mesmo mecanismo que
+  `data-collector/` já usa no Anchor desde a Fase 11.3 dele). Achados os 3 únicos pontos
+  Postgres-specific do código (`single_row_cache.py`/`append_only_list_cache.py`/
+  `macro_series_service.py`, todos `sqlalchemy.dialects.postgresql.insert` com
+  `on_conflict_do_*`) — resolvidos com um dispatcher de dialeto (`app/services/db_dialect.py`)
+  que troca pra `sqlalchemy.dialects.sqlite.insert` em runtime (API idêntica nos dois dialetos,
+  SQLite ≥3.24 suporta `ON CONFLICT` nativo). Nenhuma outra parte do código (`models/`,
+  migrations Alembic) tinha algo Postgres-only. Novo `api/sidecar_main.py`: roda as migrations
+  Alembic programaticamente até `head` (mesmo histórico do path Postgres, evolui um db local
+  existente entre versões do app, ao contrário de `create_all()`), sobe uvicorn passando o objeto
+  `app` direto (não a string `"app.main:app"` — binário PyInstaller-frozen não resolve import
+  dinâmico), porta OS-assigned anunciada via `SIDECAR_PORT=<porta>` na primeira linha do stdout
+  (sinal de prontidão pro processo que embutir o sidecar — Anchor, Fase 14.2 dele, ainda não
+  desenhada). `DATABASE_URL`/`API_KEYS` continuam simples env vars, zero mudança em
+  `config.py`/`auth.py`. Validado ao vivo: script interpretado E binário compilado
+  (`pyinstaller --onefile`) rodando de verdade contra SQLite, Alembic criou as 22 tabelas das 5
+  migrations, `/healthz` e `/v1/macro-series/{cdi,ipca}` responderam 200 com fetch real da BCB
+  SGS + upsert de verdade no SQLite (não mock). Suite completa (`docker compose exec api pytest`,
+  path Postgres) continua 162/162 depois do refactor do dialeto — sem regressão. Fecha só a
+  camada de empacotamento; o consumo pelo Anchor (CI, lifecycle do sidecar, migração do
+  fetch+write) fica pra sessões futuras, roadmap completo na Fase 14 do `PHASE.md` do Anchor.
 
 ### Fase 2 — Engine Fiscal (SEFAZ)
 

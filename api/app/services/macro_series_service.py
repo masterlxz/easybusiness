@@ -13,10 +13,10 @@ import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.models.macro_series import MacroSeriesMonthly
+from app.services.db_dialect import upsert_insert
 from app.services.freshness import is_fresh
 from app.sources.bcb_sgs import BcbSgsError, fetch_monthly_series
 from app.sources.catalog import get_series_info
@@ -46,7 +46,7 @@ def _upsert_points(db: Session, series_code: str, points: list[dict]) -> None:
         for point in points
     ]
 
-    stmt = insert(MacroSeriesMonthly).values(rows)
+    stmt = upsert_insert(db.get_bind())(MacroSeriesMonthly).values(rows)
     stmt = stmt.on_conflict_do_update(
         index_elements=[MacroSeriesMonthly.series_code, MacroSeriesMonthly.reference_month],
         set_={

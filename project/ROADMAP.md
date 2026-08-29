@@ -37,7 +37,7 @@ camada de confiabilidade compartilhada (retry, fallback, normalização) além d
 fazia sozinho. **Migrado na Sessão 7 (Fase 1.7, ver `PHASE.md`)** — híbrido, não 100%: o que a
 Finance API cobre virou HTTP; o resto (ver "Fase 1.6b" abaixo) continua local.
 
-### Fase 1.6b — fechar a lacuna deixada pela migração híbrida (candidato futuro, não desenhado)
+### Fase 1.6b → agora Fase 1.11 — fechar a lacuna deixada pela migração híbrida (sequenciada, não iniciada)
 
 A 1.7 (Sessão 7) revelou que a Finance API não cobre tudo que o Anchor precisa — 4 capacidades
 continuam rodando local no `data-collector/` dele por falta de endpoint equivalente:
@@ -49,8 +49,18 @@ continuam rodando local no `data-collector/` dele por falta de endpoint equivale
 - Resolução ticker→CNPJ de FII (`resolve_cnpj`) — cruza bolsai + nome oficial da CVM, nunca
   desenhada como endpoint (decisão da Sessão 4 do Anchor).
 
-Nenhuma dessas foi sequenciada — fica registrado aqui só pra não se perder, caso algum dia outro
-consumidor da Finance API precise do mesmo dado e justifique o esforço de portar.
+**Sessão 10**: pedido explícito do dono do projeto pra fechar de vez o ciclo Open-Core (ver
+"Monetização" abaixo) do lado do Anchor — apagar `data-collector/` de vez, rodando a versão
+free/self-hosted da Finance API localmente "já instalada" (sem Docker/Postgres pro usuário
+final) e deixando um espaço de configuração pra apontar pra uma futura instância Cloud paga.
+Isso virou um plano cross-repo em 2 fases do lado EasyBusiness — **1.10** (modo sidecar
+SQLite/binário compilado, concluída na Sessão 10, ver `PHASE.md`) e **esta 1.11** (fechar as 4
+capacidades acima, ainda não desenhada nem sequenciada em sub-itens) — mais 5 sub-fases do lado
+Anchor (Fase 14 do `PHASE.md` dele: CI/bundling do sidecar, lifecycle+client em Rust, Settings
+Local/Remote, porta do fetch+write Python→Rust, limpeza final do `data-collector/`). A 1.11 é
+pré-requisito pra Anchor conseguir apagar `data-collector/` por completo (Fase 14.4/14.5 dele só
+fecham depois que nada mais depender de lógica local) — mas é independente da 1.10, pode ser
+feita em paralelo com o trabalho do lado Anchor.
 
 ### Ideias de Expansão (Brainstorm — sem `/plan`)
 

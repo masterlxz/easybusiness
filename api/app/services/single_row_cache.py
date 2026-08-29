@@ -16,9 +16,9 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.services.db_dialect import upsert_insert
 from app.services.freshness import is_fresh
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def get_or_refresh_single_row(
             else:
                 now = datetime.now(timezone.utc)
                 values = {pk_column.key: pk_value, "source": source_name, "fetched_at": now, **fields}
-                stmt = insert(model).values(**values)
+                stmt = upsert_insert(db.get_bind())(model).values(**values)
                 stmt = stmt.on_conflict_do_update(
                     index_elements=[pk_column],
                     set_={
