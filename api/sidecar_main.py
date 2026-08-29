@@ -14,9 +14,22 @@ touches the Postgres driver, there's no unconditional `import psycopg` anywhere)
   string) — a PyInstaller-frozen binary can't reliably resolve dynamic import strings the way
   `uvicorn.run("module:attr")`'s reload/multi-worker machinery expects.
 - Binds `PORT` from env if set, else lets the OS assign a free port, and announces it as the
-  first stdout line (`SIDECAR_PORT=<port>`) before serving — the readiness signal a future
-  embedding caller (Anchor's Rust sidecar lifecycle, Fase 14.2) parses instead of guessing a
-  fixed port that might collide with something else on the user's machine.
+  first stdout line (`SIDECAR_PORT=<port>`) before serving — the readiness signal Anchor's Rust
+  sidecar lifecycle (Fase 14.2, `desktop/src-tauri/src/finance_api/sidecar.rs`) parses instead of
+  guessing a fixed port that might collide with something else on the user's machine.
+
+Building the `--onefile` binary needs two extra `--add-data` flags beyond a bare
+`pyinstaller --onefile sidecar_main.py` — found live in Anchor's Fase 14.2 (the compiled binary
+built without them crashed on startup with `CommandError: Path doesn't exist: .../migrations`,
+because `_run_migrations` reads `migrations/`/`alembic.ini` straight off disk via `__file__`,
+not through a Python `import` that PyInstaller's static analysis would follow into the bundle):
+
+    pyinstaller --onefile --name <name> \\
+        --add-data "$(pwd)/migrations:migrations" --add-data "$(pwd)/alembic.ini:." \\
+        sidecar_main.py
+
+(paths passed to `--add-data` must be absolute, or resolved relative to `--specpath`, not to the
+current working directory — a bare relative `migrations:migrations` fails to resolve).
 """
 from __future__ import annotations
 
