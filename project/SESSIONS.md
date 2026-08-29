@@ -256,3 +256,58 @@ Metais, bolsai, SEC EDGAR).
 Próximo passo natural: Fase 1.7 (migrar o Anchor pra consumir a Super API em vez de rodar
 `data-collector/main.py` localmente) ou Fase 1.8 (documentação pública da API). Trabalho ainda
 não commitado — falta confirmar com o dono do projeto antes do push.
+
+### 2026-08-28 — Sessão 7
+
+**Objetivo**: Fase 1.7 — migrar o Anchor (`../anchor`) pra consumir a Super API em vez de rodar
+`data-collector/main.py` localmente. Confirmado commit da Sessão 6 já estava no repo
+(`4072a3e`) antes de começar.
+
+**O que foi feito**:
+- 2 agentes `Explore` em paralelo (um por repo) mapearam o contrato completo: toda função de
+  `anchor/data-collector/sources/*.py` (assinatura, shape de retorno, chaves de API) de um lado,
+  todo endpoint/schema da Super API do outro. Achado central: **a Super API não cobre 100% do
+  que o Anchor fazia** — cotação/técnicos/dividendos/preço de ticker sem sufixo `.SA` (ação
+  US/ETF US/REIT), indicadores imobiliários de REIT, IBOV, e `resolve_cnpj` de FII (nunca
+  portada, decisão da Sessão 4) não têm endpoint equivalente.
+- Escopo confirmado com o dono do projeto via `AskUserQuestion`: migração **híbrida** — migra o
+  que a API já cobre, deixa o resto local, sem estender a API agora (candidato a "Fase 1.6b"
+  registrado em `ROADMAP.md`).
+- Bug achado na exploração (`GET /v1/fiis/{cnpj}/properties` não captura `FundNotFoundError`) —
+  investigado a fundo antes de "corrigir": lendo `fii_service.py` de verdade, a causa não é um
+  bug de exceção não capturada, é ambiguidade de fonte — lista vazia serve tanto pra CNPJ
+  desconhecido quanto pra FII de papel/recebíveis sem imóvel nenhum, e não dá pra distinguir os
+  dois com o dado que a CVM fornece. Confirmado com o dono do projeto: **não mexer**, documentar
+  como limitação consciente (`PENDING.md` item P1) — "corrigir" arriscaria classificar um FII de
+  papel válido como "não encontrado" na primeira chamada.
+- `anchor/data-collector/sources/super_api_client.py` (módulo novo, repo do Anchor): ~20
+  funções-wrapper que replicam a forma exata das funções antigas que substituem, escondendo o
+  loop por identificador (Super API só aceita um por chamada, decisão de design já registrada em
+  `ARCHITECTURE.md`) — mantém o corpo das `collect_*` de `main.py` quase intocado.
+- Módulos deletados no Anchor (100% redundantes): `bcb_sgs.py`, `cvm_dfp.py`,
+  `b3_index_stats.py`, `metais_yahoo.py`, `cripto_defillama.py`, `cripto_ultrasound.py`,
+  `cripto_feargreed.py`, `cripto_coingecko.py`. Trimados (só a fatia migrada saiu):
+  `acoes_bolsai.py`, `cvm_fii.py`, `sec_edgar.py`.
+- **2 bugs achados e corrigidos durante a validação ao vivo** (não durante o planejamento):
+  (1) primeira versão do `super_api_client.py` capturava `SuperApiError` genérico dentro do loop
+  por-ticker — rodando com a Super API derrubada de propósito (`docker compose stop api`), o
+  coletor terminava `exit 0`/"Updated 0 quote(s)" em vez de falhar alto, mascarando
+  indisponibilidade total como "sem dado nenhum". Corrigido pra só capturar 404
+  (`SuperApiNotFoundError`) dentro do loop, erro de rede/5xx propaga. (2) `/v1/metals/{code}` e
+  `/v1/b3-indexes/{code}` usam catálogo minúsculo (`xau`, `ifix`), Anchor sempre trabalhou
+  maiúsculo — `.lower()` só na URL, sem mudar o ticker gravado no SQLite dele. (3) códigos dos 4
+  indicadores ETH usam hífen (`tvl-trend`), Anchor usa underscore internamente (`tvl_trend`,
+  chave de `indicator_thresholds`) — corrigido nos call sites, sem tocar no schema do Anchor.
+- Validado ao vivo, ponta a ponta, contra a Super API real (`docker compose up`) e o
+  `anchor.db` real: `--ticker PETR4`/`MGLU3`, `crypto` (4 indicadores ETH), `--crypto-ticker
+  BTC`, `--metal-ticker XAU`, `--benchmark-returns` (7 benchmarks), `--fii-cvm-data`, `--us-ticker
+  AAPL` (payout 15,08%, mesmo número confirmado na Sessão 6). Confirmado que o que ficou local
+  segue funcionando sem a Super API: `--reit-ticker`, `--etf-us-ticker`, `--fii-resolve-cnpj`.
+  Suíte da Super API: 162/162 (sem regressão, nenhum endpoint tocado).
+- `project/PENDING.md`, `PHASE.md`, `ROADMAP.md` (aqui) e `project/SESSIONS.md` do Anchor
+  (Sessão 88, relato completo da migração do lado dele) atualizados.
+
+**Estado ao final**: Fase 1.7 completa (migração híbrida). Próximo passo natural: Fase 1.8
+(documentação pública da API) ou, no Anchor, considerar a "Fase 1.6b" registrada em
+`ROADMAP.md` se algum consumidor futuro precisar do que ficou de fora. Trabalho ainda não
+commitado nos dois repos — falta confirmar com o dono do projeto antes do push.

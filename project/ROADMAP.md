@@ -28,16 +28,29 @@ existir.
 
 ### Migração do Anchor pra Super API — ideia central desta sessão (Sessão 1)
 
-O Anchor (`../../anchor`) tem hoje `data-collector/` — 12 clientes Python independentes (ver
+O Anchor (`../../anchor`) tinha `data-collector/` — 12 clientes Python independentes (ver
 catálogo completo em `CONTEXT.md`), cada um escrevendo direto no SQLite local do app, disparado
-como subprocess sob demanda pelo botão da UI. Isso funciona, mas: (1) não tem cache/reuso entre
-os apps do Anchor (desktop, mobile ainda não sincroniza, futuro cross-device via TruthID);
+como subprocess sob demanda pelo botão da UI. Isso funcionava, mas: (1) não tinha cache/reuso
+entre os apps do Anchor (desktop, mobile ainda não sincroniza, futuro cross-device via TruthID);
 (2) qualquer outro projeto financeiro do mesmo autor reimplementaria tudo de novo; (3) sem
 camada de confiabilidade compartilhada (retry, fallback, normalização) além do que cada script
-faz sozinho. A migração-alvo: o Anchor troca a chamada de subprocess por uma chamada HTTP pra
-Super API, que passa a ser a fonte única de verdade pros dados de mercado/macro/fundamentos —
-sem duplicar a lógica de coleta em dois lugares. Ainda não desenhada em detalhe (depende da
-Fase 1 do EasyBusiness existir primeiro).
+fazia sozinho. **Migrado na Sessão 7 (Fase 1.7, ver `PHASE.md`)** — híbrido, não 100%: o que a
+Super API cobre virou HTTP; o resto (ver "Fase 1.6b" abaixo) continua local.
+
+### Fase 1.6b — fechar a lacuna deixada pela migração híbrida (candidato futuro, não desenhado)
+
+A 1.7 (Sessão 7) revelou que a Super API não cobre tudo que o Anchor precisa — 4 capacidades
+continuam rodando local no `data-collector/` dele por falta de endpoint equivalente:
+- Cotação/técnicos/dividendos/histórico de preço pra ticker **sem sufixo `.SA`** (ação
+  americana comum, ETF US, REIT) — `/v1/stocks/...` hoje só serve B3.
+- Indicadores imobiliários de REIT (FFO/AFFO não existem como tag XBRL, mas receita/patrimônio/
+  LPA/lucro dão pra automatizar, mesmo espírito de `/v1/companies/...`).
+- IBOV (`^BVSP`) — mesmo problema do primeiro item, é Yahoo sem sufixo.
+- Resolução ticker→CNPJ de FII (`resolve_cnpj`) — cruza bolsai + nome oficial da CVM, nunca
+  desenhada como endpoint (decisão da Sessão 4 do Anchor).
+
+Nenhuma dessas foi sequenciada — fica registrado aqui só pra não se perder, caso algum dia outro
+consumidor da Super API precise do mesmo dado e justifique o esforço de portar.
 
 ### Ideias de Expansão (Brainstorm — sem `/plan`)
 
