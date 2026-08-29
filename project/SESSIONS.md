@@ -309,5 +309,86 @@ não commitado — falta confirmar com o dono do projeto antes do push.
 
 **Estado ao final**: Fase 1.7 completa (migração híbrida). Próximo passo natural: Fase 1.8
 (documentação pública da API) ou, no Anchor, considerar a "Fase 1.6b" registrada em
-`ROADMAP.md` se algum consumidor futuro precisar do que ficou de fora. Trabalho ainda não
-commitado nos dois repos — falta confirmar com o dono do projeto antes do push.
+`ROADMAP.md` se algum consumidor futuro precisar do que ficou de fora. Commitado e pushado nos
+dois repos (`easybusiness` `4072a3e..7735289`, `anchor` `6384992..d49301e`, depois de uma
+correção de nome — ver Sessão 8).
+
+### 2026-08-29 — Sessão 8
+
+**Objetivo**: renomear "Super API"/"Super DB" (nome que grudou por engano, sugeria escopo maior
+que o real) pra "Finance API"/"Finance DB"; depois, Fase 1.8 — documentação pública.
+
+**O que foi feito — renomeação**:
+- Escopo confirmado com o dono do projeto via `AskUserQuestion`: renomear em todo lugar,
+  incluindo o histórico já commitado do `SESSIONS.md` (Sessões 1-7) — não é reescrita de git
+  history (nenhum commit alterado/rebased), só um commit novo corrigindo texto. `Super Banco de
+  Dados`/`Super DB` corrigido junto, pro mesmo motivo.
+- `easybusiness`: prosa em `README.md`, `api/app/main.py` (título do FastAPI), 1 comentário em
+  `api/app/sources/crypto_indicator_catalog.py`, e todo `project/` (incluindo as 6 sessões já
+  commitadas do `SESSIONS.md`). Nenhum identificador de código precisou mudar aqui.
+- `anchor`: `sources/super_api_client.py` renomeado pra `sources/finance_api_client.py`,
+  `SuperApiError`/`SuperApiNotFoundError` → `FinanceApiError`/`FinanceApiNotFoundError`,
+  `SUPER_API_BASE_URL`/`SUPER_API_KEY` → `FINANCE_API_*` (`.env`/`.env.example`), mais prosa em
+  `main.py`/`README.md`/docstrings dos módulos trimados/`project/SESSIONS.md` (Sessão 88, ainda
+  não commitada nessa hora).
+- Validado: `grep` confirmando zero ocorrência residual nos dois repos, recompilação Python
+  limpa, smoke test ao vivo (`--ticker PETR4`, `crypto`) contra a Finance API real, suíte da API
+  162/162.
+- Commitado (não amend) e pushado: `easybusiness` `ea46e5b..7735289`, `anchor` — nasceu direto
+  com o nome certo, um commit único `d49301e` (nada tinha sido commitado lá ainda).
+
+**O que foi feito — Fase 1.8 (documentação pública)**:
+- Padrão do TruthID esclarecido pelo dono do projeto (eu tinha presumido Docusaurus, errado): é
+  `site/frontend`, Next.js (App Router) + Fumadocs, com conta de usuário (Rails/OAuth) e 4
+  idiomas via `next-intl` + i18n do próprio Fumadocs. Explorado a fundo (1 agente `Explore`)
+  pra separar o que é carga real do que é bloat específico do TruthID antes de desenhar o
+  equivalente do EasyBusiness.
+- Escopo fechado com o dono do projeto via várias rodadas de `AskUserQuestion`: **inglês, sem
+  i18n** (`GUIDELINES.md` já dizia que documentação de API pública é em inglês — eu tinha
+  presumido português por engano, corrigido antes de codar); **sem conta/backend**, só docs;
+  componente novo `docs/` na raiz do monorepo (não repo separado); **referência de endpoint
+  auto-gerada via `fumadocs-openapi`** a partir do `/openapi.json` da própria FastAPI (não
+  hand-written como o TruthID faz pros SDKs — já são 30 endpoints crescendo toda sessão, hand-
+  written desatualizaria rápido); serviço novo no `docker-compose.yml`, dev mode, mesmo padrão
+  do TruthID; sem deploy público ainda.
+- `docs/`: Next.js 16 + React 19 + Tailwind v4 + `fumadocs-core`/`fumadocs-mdx`/`fumadocs-ui`/
+  `fumadocs-openapi`, sem `next-intl`. `lib/source.ts` (`defineDocs`+`loader`, sem `i18n` key —
+  mais simples que o do TruthID), `app/docs/[[...slug]]/page.tsx`+`layout.tsx` únicos (sem o
+  split `app/docs` vs `app/[locale]/docs` que o TruthID só precisa pro export estático do
+  GitHub Pages), busca embutida (`fumadocs-core/search/server`, Orama, zero serviço externo).
+  Marca própria (emerald, não copiado do teal/cyan do TruthID).
+- Conteúdo em inglês: `index.mdx`/`quickstart.mdx` + 4 páginas de conceito
+  (`auth`/`caching`/`catalog`/`errors`) escritas à mão, cobrindo o envelope `cached`/`stale`/
+  `fetched_at`, TTLs por tipo de dado (`config.py`), a tabela fonte→endpoint (reaproveitando
+  `CONTEXT.md`), e os 3 modos de erro (404 catálogo desconhecido vs 404 sem dado vs 502 fonte
+  fora do ar) incluindo a ressalva documentada de `/v1/fiis/{cnpj}/properties` (`PENDING.md`
+  P1).
+- **`scripts/generate-reference.mjs`**: roda no `predev`/`prebuild`, busca
+  `{API_BASE_URL}/openapi.json` (default `http://api:8000`, hostname do compose) com retry (10
+  tentativas/2s, cobre o `api` ainda não estar pronto), chama `generateFiles` do
+  `fumadocs-openapi` — `content/docs/reference/` é gitignored, nunca commitado, sempre
+  regenerado.
+- **3 bugs reais achados só rodando de verdade** (documentação oficial não bastou sozinha —
+  achada via `gh search code` no repo `fuma-nama/fumadocs` depois de tentativa e erro):
+  (1) `createOpenAPIPage()` não pode ser chamado direto num módulo alcançável por um Server
+  Component (`components/mdx.tsx`, importado pelo `page.tsx`) — isolado num
+  `components/openapi-page.tsx` próprio com `"use client"`; (2) as páginas de referência
+  geradas quebravam com `Cannot read properties of undefined (reading 'bundled')` — faltava o
+  `page.tsx` chamar `openapi.preloadOpenAPIPage(page)` e mesclar o resultado nas props do
+  `OpenAPIPage` (a documentação do próprio `fumadocs-openapi`, achada via `gh search code`,
+  confirmou o wiring exato — `openapi.loaderPlugin()` que eu tinha tentado primeiro era coisa
+  cosmética, não a causa); (3) `docker-compose.yml` copiado com `user: "1000:1000"` (padrão do
+  serviço `api`) quebrava `npm install` com `EACCES` no volume nomeado de `node_modules` (nasce
+  root-owned) — removido, confirmado que o `frontend` do próprio TruthID também não usa isso.
+- Validado ao vivo, ponta a ponta, via `docker compose up --build` de verdade (não só localmente
+  fora do Docker): API sobe, `docs` gera a referência contra `http://api:8000/openapi.json`
+  (hostname interno do compose, não `localhost`), `next build` compila as 34 páginas sem erro,
+  `/docs`, uma página de referência real (`get_macro_series_...`, conteúdo correto renderizado),
+  páginas de conceito, e `/api/search` respondendo 200 com índice real.
+- `README.md`, `project/PHASE.md` (1.8 fechada, **Fase 1 completa**) e `project/OVERVIEW.md`
+  atualizados.
+
+**Estado ao final**: Fase 1 do EasyBusiness **completa** (8/8 etapas). Próximo passo natural:
+Fase 2 (Engine Fiscal/SEFAZ) do blueprint original, ou considerar a "Fase 1.6b" registrada em
+`ROADMAP.md` se um consumidor futuro precisar do que ficou fora da migração híbrida do Anchor.
+Trabalho ainda não commitado — falta confirmar com o dono do projeto antes do push.

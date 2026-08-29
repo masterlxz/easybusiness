@@ -1,0 +1,44 @@
+---
+title: Source catalog
+description: Which upstream source backs each endpoint, and any source-specific caveats.
+---
+
+Every endpoint wraps exactly one upstream source. None of them are proxied as-is — each one is
+reimplemented against the real upstream contract (not copied from any other project) and
+normalized into this API's own response shape.
+
+| Endpoint prefix | Upstream source | Notes |
+|---|---|---|
+| `/v1/macro-series/{series_code}` | BCB SGS | Locked catalog: `cdi`, `ipca` only |
+| `/v1/stocks/{ticker}/...` | Yahoo Finance | B3 tickers only (`.SA` suffix applied internally) |
+| `/v1/stocks/{ticker}/bolsai-fundamentals` | bolsai | Requires the API's own `BOLSAI_API_KEY`; `roe` is exposed as-is from bolsai — see the caveat below |
+| `/v1/companies/{cvm_code}/...` | CVM Dados Abertos (DFP) | Identified by CVM code, not ticker — resolve it via `bolsai-fundamentals` first |
+| `/v1/fiis/{cnpj}/...` | CVM Dados Abertos (FII) | Identified by CNPJ, not ticker |
+| `/v1/crypto/eth-indicators/{code}` | DefiLlama, ultrasound.money, CoinGecko | Locked catalog: `tvl-trend`, `net-issuance`, `fees-vs-emission`, `nvt-ratio` |
+| `/v1/crypto/fear-greed` | alternative.me | Global index, not per-coin |
+| `/v1/crypto/{symbol}/...` | CoinGecko | Symbol resolved to a CoinGecko coin ID server-side |
+| `/v1/b3-indexes/{index_code}/history` | B3 index statistics | Locked catalog: `ifix`, `smll`, `idiv` |
+| `/v1/metals/{metal_code}/...` | Yahoo Finance | Locked catalog: `xau`, `xag`, `xpt`, `xpd` (COMEX futures symbols) |
+| `/v1/us-stocks/{ticker}/...` | SEC EDGAR | Ticker→CIK resolution cached server-side |
+
+## Known caveat: bolsai's `roe` field
+
+`bolsai-fundamentals` exposes `roe` exactly as bolsai returns it, but that field is known to mix
+quarterly and TTM (trailing twelve months) profit depending on the company, without indicating
+which — confirmed against a real case where it returned 3.5% when the actual reported figure was
+26.6%. For a reliable ROE, use `/v1/companies/{cvm_code}/roe` instead, which computes it directly
+from CVM's raw financial statements.
+
+## Known gap: bank taxonomy
+
+`/v1/companies/{cvm_code}/dcf-fundamentals` and `/v1/us-stocks/{ticker}/dcf-fundamentals` return
+`404` for most banks — Brazilian banks report under COSIF (not the standard DFP account codes)
+and US banks are missing several standard XBRL tags (`OperatingIncomeLoss`, `InventoryNet`,
+etc.) that regular companies report. This isn't a bug; it's a real accounting-taxonomy
+difference. ROE/fundamentals endpoints that don't depend on those specific fields still work
+normally for banks.
+
+## Next steps
+
+- [Errors](/docs/concepts/errors) — what a 404 means in each of these cases.
+- [Reference](/docs/reference) — the exact response shape per endpoint.

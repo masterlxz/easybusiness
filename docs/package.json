@@ -1,0 +1,39 @@
+{
+  "name": "easybusiness-docs",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0"
+  },
+  "scripts": {
+    "predev": "node scripts/generate-reference.mjs",
+    "dev": "next dev",
+    "prebuild": "node scripts/generate-reference.mjs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "fumadocs-core": "^16.14.4",
+    "fumadocs-mdx": "^15.2.3",
+    "fumadocs-openapi": "^11.3.5",
+    "fumadocs-ui": "^16.14.4",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "unrs-resolver@1.12.2": true
+  }
+}

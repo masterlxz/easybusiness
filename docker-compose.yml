@@ -28,5 +28,23 @@ services:
       db:
         condition: service_healthy
 
+  docs:
+    # No `user: "1000:1000"` here (unlike `api`) — matches the sibling
+    # TruthID docs site's own compose file, which runs the frontend
+    # container as root too. The named volume for node_modules below is
+    # created root-owned by Docker; pinning to the host uid would break
+    # `npm install` writing into it.
+    build:
+      context: ./docs
+    volumes:
+      - ./docs:/app
+      - docs-node-modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    command: sh -c "npm install && npm run dev -- -H 0.0.0.0"
+
 volumes:
   db-data:
+  docs-node-modules:

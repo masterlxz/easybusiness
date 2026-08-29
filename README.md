@@ -11,6 +11,7 @@ decisões (visão, arquitetura, roadmap, pendências).
 | Componente | Stack | Path |
 |---|---|---|
 | Finance API | Python + FastAPI + PostgreSQL | [`api/`](api/) |
+| Docs | Next.js + Fumadocs | [`docs/`](docs/) |
 
 ## Rodando localmente
 
@@ -33,6 +34,10 @@ Testes automatizados (mockados, sem depender de rede real):
 ```bash
 docker compose exec api pytest -v
 ```
+
+`docker compose up` também sobe a documentação pública em `http://localhost:3000/docs`
+(referência de endpoints gerada ao vivo a partir do `/openapi.json` da própria API, mais guias
+de autenticação, cache e catálogo de fontes).
 
 ## Status
 

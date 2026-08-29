@@ -1,0 +1,51 @@
+---
+title: Errors
+description: What each HTTP status actually means across this API.
+---
+
+The API distinguishes three failure modes consistently across every endpoint that has one:
+
+## 401 — missing or invalid API key
+
+Checked before anything else. See [Authentication](/docs/concepts/auth).
+
+## 404 — not in the catalog, or no data for this identifier
+
+Two distinct situations both return 404, with a message that says which:
+
+- **Unknown identifier**: the code/ticker/CNPJ isn't in a locked catalog (e.g. a metal code
+  that isn't `xau`/`xag`/`xpt`/`xpd`, a macro series code other than `cdi`/`ipca`), or a ticker
+  the upstream source has never heard of.
+- **No data available**: the identifier is valid, but the source genuinely has nothing to
+  return right now (e.g. a stock with no dividend history, a company missing a specific DCF
+  input field).
+
+Both cases return 404 rather than an empty `200`, because callers generally want to treat
+"nothing to show" as an error condition to handle explicitly, not silently render.
+
+```json
+{ "detail": "Unknown series code: selic" }
+```
+
+### Known exception: `/v1/fiis/{cnpj}/properties`
+
+This one endpoint returns `200` with `data: []` for both an unknown CNPJ and a real fund that
+legitimately has zero properties (a paper/receivables FII). There's no way to tell the two apart
+from what the CVM's own data provides — a fund with zero properties in its filing looks
+identical to a fund the CVM has never heard of. Every other endpoint in the catalog does
+distinguish "unknown" from "no data" via 404; this is a deliberate, documented exception, not an
+oversight. Treat an empty `data` array here as "no properties," never as an error.
+
+## 502 — upstream source unreachable, no cache to fall back on
+
+The source itself failed (network error, unexpected response shape) and there's no previously
+cached value to serve instead. If a cached value *does* exist, the API serves it with
+`"stale": true` rather than failing — see [Caching](/docs/concepts/caching).
+
+```json
+{ "detail": "Failed to fetch data from CVM and no cached data available" }
+```
+
+## Next steps
+
+- [Reference](/docs/reference) — exact status codes per endpoint.

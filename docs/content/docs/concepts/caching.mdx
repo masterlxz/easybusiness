@@ -1,0 +1,50 @@
+---
+title: Caching
+description: The cache-through model, response envelope, and TTLs per data type.
+---
+
+Every endpoint is cache-through against Postgres: a request either serves an already-fresh
+cached row, or fetches from the upstream source, upserts the result, and serves it. There's no
+background job or cron polling sources ahead of time — data is only ever fetched on demand, the
+first time someone asks for it (or after it's gone stale).
+
+## Response envelope
+
+Every response shares the same shape for cache metadata, regardless of endpoint:
+
+```json
+{
+  "source": "bcb_sgs",
+  "cached": true,
+  "stale": false,
+  "fetched_at": "2026-08-29T02:33:36.776603Z"
+}
+```
+
+- **`cached`** — `true` if this response was served from Postgres without a new upstream call.
+- **`stale`** — `true` if the upstream call failed but a previously cached value was served
+  anyway, past its TTL. This only happens when the source is unreachable; a fresh cache miss
+  with a working source never sets this.
+- **`fetched_at`** — when the underlying data was last actually fetched from the source (not
+  when this particular response was generated).
+
+## TTLs by data type
+
+TTLs are configured via environment variables (`api/.env`), not per-request:
+
+| Variable | Default | Applies to |
+|---|---|---|
+| `STOCK_QUOTE_TTL_SECONDS` | 300 (5 min) | Stock quotes, metal quotes — changes fast |
+| `CRYPTO_QUOTE_TTL_SECONDS` | 300 (5 min) | Crypto quotes |
+| `FUNDAMENTALS_TTL_SECONDS` | 86400 (24h) | Company/FII/US-stock fundamentals, DCF inputs, payout, bolsai fundamentals — quarterly/annual data, changes rarely |
+| `CACHE_TTL_SECONDS` | 3600 (1h) | Everything else — macro series, technicals, price history, dividend payments, B3 indexes, ETH indicators, Fear &amp; Greed |
+
+## Upstream failure vs. no data
+
+A source being unreachable and an identifier legitimately having no data are different
+failure modes with different HTTP statuses — see [Errors](/docs/concepts/errors).
+
+## Next steps
+
+- [Errors](/docs/concepts/errors) — the full status code contract.
+- [Reference](/docs/reference) — per-endpoint request/response shapes.

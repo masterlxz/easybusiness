@@ -12,3 +12,12 @@ venv/
 
 # disk cache for downloaded CVM zips (api/app/sources/cvm_dfp.py, cvm_fii.py)
 api/.cache/
+
+# node / docs (Next.js + Fumadocs)
+docs/node_modules/
+docs/.next/
+docs/.source/
+docs/next-env.d.ts
+docs/tsconfig.tsbuildinfo
+# generated from the live OpenAPI schema (scripts/generate-reference.mjs) — never hand-edit
+docs/content/docs/reference/

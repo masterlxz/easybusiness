@@ -1,0 +1,58 @@
+---
+title: Quickstart
+description: Run the Finance API locally and make your first request.
+---
+
+The Finance API is self-hosted — there's no managed/cloud instance yet. Everything runs via
+Docker Compose; nothing needs to be installed on the host besides Docker.
+
+## 1. Clone and configure
+
+```bash
+git clone https://github.com/masterlxz/easybusiness.git
+cd easybusiness
+cp api/.env.example api/.env
+```
+
+The default `.env.example` ships a dev API key (`local-dev-key-change-me`) so you can try the
+API immediately — replace it before exposing the service beyond your own machine.
+
+## 2. Start it
+
+```bash
+docker compose up --build
+```
+
+This starts Postgres, runs migrations, and starts the API at `http://localhost:8000`.
+
+## 3. Make a request
+
+Every endpoint requires the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: local-dev-key-change-me" http://localhost:8000/v1/macro-series/cdi
+```
+
+```json
+{
+  "series_code": "cdi",
+  "source": "bcb_sgs",
+  "cached": false,
+  "stale": false,
+  "fetched_at": "2026-08-29T02:33:36.776603Z",
+  "data": [
+    { "reference_month": "1986-08-01", "value_pct": 2.9 },
+    { "reference_month": "1986-09-01", "value_pct": 3.3 }
+  ]
+}
+```
+
+Run the same request again and `cached` flips to `true` — the second call was served from
+Postgres, not the upstream BCB source. See [Caching](/docs/concepts/caching) for how TTLs work
+per data type.
+
+## Next steps
+
+- [Authentication](/docs/concepts/auth) — how API keys are validated.
+- [Errors](/docs/concepts/errors) — what a 404 vs. a 502 actually means here.
+- [Reference](/docs/reference) — every endpoint, with request/response shapes.

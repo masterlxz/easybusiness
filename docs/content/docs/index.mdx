@@ -1,0 +1,45 @@
+---
+title: Introduction
+description: What the EasyBusiness Finance API is and what it covers today.
+---
+
+The EasyBusiness Finance API is a single, self-hosted HTTP service that centralizes financial
+market data — stock quotes, fundamentals, macroeconomic series, crypto, precious metals, and
+real estate fund (FII) indicators — behind one consistent JSON contract, instead of every
+consumer integrating a dozen unrelated third-party APIs on its own.
+
+It's the financial-data slice of the broader [EasyBusiness](https://github.com/masterlxz/easybusiness)
+platform (Phase 1 of a larger blueprint that also covers fiscal automation, WhatsApp messaging,
+and a workspace app for small businesses — none of that exists yet). The first real consumer is
+[Anchor](https://github.com/masterlxz/anchor), a personal portfolio tracker that used to run
+each data source as an independent local script and now calls this API over HTTP instead.
+
+## What it covers
+
+| Domain | Data | Source |
+|---|---|---|
+| Brazilian stocks | Quote, technicals, dividends, price history, fundamentals, DCF inputs | Yahoo Finance, bolsai, CVM |
+| Companies (by CVM code) | ROE, payout, DCF fundamentals | CVM Dados Abertos |
+| Real estate funds (FII) | Monthly indicators, properties | CVM Dados Abertos |
+| Macro | CDI, IPCA | BCB SGS |
+| B3 indexes | IFIX, SMLL, IDIV history | B3 index statistics |
+| Precious metals | Quote, price history (XAU/XAG/XPT/XPD) | Yahoo Finance |
+| Crypto | ETH health indicators, Fear &amp; Greed, quote/history by symbol | CoinGecko, DefiLlama, ultrasound.money, alternative.me |
+| US stocks (by ticker) | Fundamentals, DCF inputs, payout | SEC EDGAR |
+
+Every endpoint is cache-through: the first request for an identifier fetches from the upstream
+source and stores the result; later requests within the configured TTL are served from Postgres
+without hitting the upstream again. See [Caching](/docs/concepts/caching) for the exact model.
+
+## What it does not cover (yet)
+
+A few capabilities that exist in Anchor's own local tooling have no endpoint here yet — quote/
+price history for non-B3 tickers (US stocks, ETFs, REITs), REIT-specific fundamentals, and
+ticker→CNPJ resolution for funds. These stay local to Anchor for now; see that project's own
+data-collector for the current state.
+
+## Next steps
+
+- [Quickstart](/docs/quickstart) — run the API locally and make your first request.
+- [Authentication](/docs/concepts/auth) — how the `X-API-Key` header works.
+- [Reference](/docs/reference) — every endpoint, generated from the live OpenAPI schema.
