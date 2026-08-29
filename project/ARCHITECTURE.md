@@ -2,8 +2,8 @@
 
 | Decisão | Opções | Status |
 |---|---|---|
-| Linguagem/framework da Super API | Python (FastAPI, reaproveita o conhecimento do `data-collector` do Anchor) vs Node/TypeScript vs Rust | **Decidido (Sessão 2) — Python + FastAPI**, confirmado com o dono do projeto via `AskUserQuestion` |
-| Banco de dados (Super DB) | PostgreSQL vs SQLite (Anchor usa SQLite hoje, mas é single-consumer; Super DB precisa servir múltiplos consumidores concorrentes) | **Decidido (Sessão 2) — PostgreSQL** (17-alpine via Docker Compose) |
+| Linguagem/framework da Finance API | Python (FastAPI, reaproveita o conhecimento do `data-collector` do Anchor) vs Node/TypeScript vs Rust | **Decidido (Sessão 2) — Python + FastAPI**, confirmado com o dono do projeto via `AskUserQuestion` |
+| Banco de dados (Finance DB) | PostgreSQL vs SQLite (Anchor usa SQLite hoje, mas é single-consumer; Finance DB precisa servir múltiplos consumidores concorrentes) | **Decidido (Sessão 2) — PostgreSQL** (17-alpine via Docker Compose) |
 | Autenticação da API | API key simples (header) vs OAuth/JWT | **Decidido (Sessão 2) — API key estática via header `X-API-Key`**, lista de chaves aceitas em `API_KEYS` (env, separadas por vírgula) — sem tabela/admin de chaves ainda, decisão consciente de MVP; virar multi-consumidor de verdade (chave por consumidor, rotação) é trabalho futuro |
 | Hospedagem | Self-host (Docker, mesmo padrão do TruthID/Anchor) vs Cloud gerenciado | **Decidido (Sessão 2) — self-host via Docker Compose**, mesmo padrão usado pelo `aporte-facil` (o projeto irmão mais próximo em stack: Python + Postgres + Docker) — `docker-compose.yml` na raiz do repo, `api/` como componente (`build: ./api`); cloud gerenciado fica pra Fase 4 (Workspace) do blueprint |
 | Cadência de coleta por fonte | Sob demanda (como o botão manual do Anchor) vs job agendado (cron) vs híbrido | **Pendente para as próximas fontes** — BCB SGS (Sessão 2) usa cache-through sob demanda com TTL configurável (`CACHE_TTL_SECONDS`, padrão 3600s), não cron; cadência das demais fontes do catálogo (`CONTEXT.md`) segue em aberto |
@@ -105,7 +105,7 @@ tomadas.
   padrão de `GET /v1/macro-series/{series_code}` (catálogo `indicator_code → fetch`,
   `app/sources/crypto_indicator_catalog.py`), diferente do "1 endpoint por capacidade" do
   Yahoo/CVM. Sem classificação GREEN/NEUTRAL/RED (isso é regra de negócio do Anchor, não dado
-  — a Super API serve o valor bruto, quem consome decide os thresholds).
+  — a Finance API serve o valor bruto, quem consome decide os thresholds).
   **Detalhe de testabilidade**: o catálogo guarda o `fetch` como uma closure que faz lookup do
   atributo do módulo em tempo de chamada (`lambda: cripto_defillama.fetch_tvl_trend_mom()`), não
   a função importada direto — importar direto congelaria a referência no momento da construção
@@ -154,7 +154,7 @@ tomadas.
   deixando o consumidor encadear pra `/v1/companies/{cvm_code}/...` sem precisar de bolsai por
   conta própria. **Ressalva conhecida (herdada do Anchor)**: o campo `roe` da bolsai mistura
   lucro trimestral com TTM dependendo da empresa — exposto como veio da fonte mesmo assim (a
-  Super API é uma camada de dados, não corrige silenciosamente o que a fonte devolve); pra ROE
+  Finance API é uma camada de dados, não corrige silenciosamente o que a fonte devolve); pra ROE
   confiável, usar `/v1/companies/{cvm_code}/roe` (calculado direto da CVM). Validado ao vivo:
   PETR4 → `cvm_code: "9512"`, ROE 28,26%.
 - **SEC EDGAR** (`api/app/sources/sec_edgar.py`): cache de resolução ticker→CIK

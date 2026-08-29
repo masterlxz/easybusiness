@@ -17,7 +17,7 @@ que devolve 404 pra CNPJ desconhecido. Achado na Sessão 7 ao planejar a migraç
 jeito de diferenciar com o dado que a própria CVM fornece — unificar o comportamento com
 `/monthly-indicators` corre o risco real de classificar um FII de papel válido como "não
 encontrado" na primeira chamada. Decisão consciente (confirmada com o dono do projeto): não
-mexer por enquanto — consumidores (o cliente HTTP do Anchor, `data-collector/super_api_client.py`)
+mexer por enquanto — consumidores (o cliente HTTP do Anchor, `data-collector/finance_api_client.py`)
 devem tratar `data: []` como "sem imóvel", nunca como erro.
 
 ## Resolvidas

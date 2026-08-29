@@ -1,4 +1,4 @@
-# EasyBusiness - PRD v0.1 (MVP: Super API Financeira)
+# EasyBusiness - PRD v0.1 (MVP: Finance API)
 
 ## Origem
 
@@ -29,20 +29,20 @@ camada financeira central confiável (ver `ROADMAP.md` para as fases seguintes d
 
 ## Core Concepts
 
-- **Super API**: API HTTP/JSON única, com autenticação por chave, que expõe dados financeiros
+- **Finance API**: API HTTP/JSON única, com autenticação por chave, que expõe dados financeiros
   normalizados independente da fonte original.
-- **Super DB**: banco de dados central (candidato: Postgres — ver decisão em `ARCHITECTURE.md`)
+- **Finance DB**: banco de dados central (candidato: Postgres — ver decisão em `ARCHITECTURE.md`)
   que armazena/cacheia o resultado das coletas, servindo de fonte única de verdade para quem
-  consome a API. Cada fonte de dado (catálogo abaixo) alimenta o Super DB via um job de
+  consome a API. Cada fonte de dado (catálogo abaixo) alimenta o Finance DB via um job de
   coleta — o equivalente centralizado ao `data-collector/` do Anchor.
 - **Consumidor**: qualquer app que troque scripts de coleta próprios por chamadas HTTP. O
   primeiro consumidor-alvo é o próprio Anchor (`desktop/src-tauri`, que hoje chama
-  `data-collector/main.py` como subprocess local — vira uma chamada HTTP pra Super API).
+  `data-collector/main.py` como subprocess local — vira uma chamada HTTP pra Finance API).
 
 ## Catálogo de Fontes de Dados (herdado do Anchor — ponto de partida da Fase 1)
 
 Levantado a partir de `anchor/data-collector/sources/` (Sessão 1). Cada uma vira, na Fase 1,
-um cliente dentro da Super API em vez de um script Python isolado:
+um cliente dentro da Finance API em vez de um script Python isolado:
 
 | Fonte | Domínio | O que fornece | Observação |
 |---|---|---|---|
@@ -69,10 +69,10 @@ da Sessão 1 (o projeto segue evoluindo em paralelo) — conferir
 [Fontes externas: Yahoo, bolsai, B3, BCB, CVM, SEC EDGAR, CoinGecko, DefiLlama, ...]
            │  (jobs de coleta, agendados ou sob demanda)
            ▼
-[Super DB — dado normalizado e cacheado]
+[Finance DB — dado normalizado e cacheado]
            │
            ▼
-[Super API — HTTP/JSON, autenticação por chave]
+[Finance API — HTTP/JSON, autenticação por chave]
            │
            ▼
 [Consumidores: Anchor (primeiro), outros projetos, usuários externos (pay-as-you-go futuro)]
@@ -85,7 +85,7 @@ da Sessão 1 (o projeto segue evoluindo em paralelo) — conferir
 - Workspace web app pro empreendedor não-técnico — Fase 4 do blueprint.
 - Gateway de pagamentos unificado (Pix/boleto/Stripe) — mencionado no blueprint original mas
   fora do escopo financeiro-de-dados desta Fase 1; decidir depois se entra como extensão da
-  Super API ou como módulo separado.
+  Finance API ou como módulo separado.
 - Migrar o código do Anchor "como está" — a ideia é reimplementar os clientes de fonte de dado
   de forma centralizada, não copiar os arquivos Python 1:1 (ver `GUIDELINES.md`).
 

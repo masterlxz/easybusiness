@@ -9,8 +9,8 @@
 - Lido o blueprint (`.docx`, extraído via `python3`/`zipfile` já que não havia `pandoc`/
   `python-docx` disponíveis no ambiente) — descreve uma plataforma de 3 camadas (APIs/SDKs,
   Workspace web, módulo B3).
-- Decidido, junto com o dono do projeto, que o MVP começa pela camada financeira: uma "Super
-  API" alimentando um "Super Banco de Dados" central, com o objetivo declarado de centralizar
+- Decidido, junto com o dono do projeto, que o MVP começa pela camada financeira: uma "Finance
+  API" alimentando um "Finance DB" central, com o objetivo declarado de centralizar
   a coleta de dados que hoje está espalhada no projeto Anchor.
 - Estudado `anchor/data-collector/sources/` (12 clientes Python: Yahoo Finance, bolsai, B3,
   BCB SGS, CVM DFP/FII, SEC EDGAR, Yahoo Metais, CoinGecko, DefiLlama, alternative.me,
@@ -28,7 +28,7 @@ etapa 1.2, decidir a stack, é o próximo passo).
 
 ### 2026-08-27 — Sessão 2
 
-**Objetivo**: primeira prova de conceito ponta a ponta da Super API (Fase 1, etapas 1.2-1.5).
+**Objetivo**: primeira prova de conceito ponta a ponta da Finance API (Fase 1, etapas 1.2-1.5).
 
 **O que foi feito**:
 - Stack decidida com o dono do projeto via `AskUserQuestion`: Python + FastAPI (reaproveita o
@@ -253,20 +253,20 @@ Metais, bolsai, SEC EDGAR).
 - `project/PHASE.md`, `ARCHITECTURE.md` e `OVERVIEW.md` atualizados.
 
 **Estado ao final**: **Fase 1.6 completa — as 11 fontes do catálogo original portadas.**
-Próximo passo natural: Fase 1.7 (migrar o Anchor pra consumir a Super API em vez de rodar
+Próximo passo natural: Fase 1.7 (migrar o Anchor pra consumir a Finance API em vez de rodar
 `data-collector/main.py` localmente) ou Fase 1.8 (documentação pública da API). Trabalho ainda
 não commitado — falta confirmar com o dono do projeto antes do push.
 
 ### 2026-08-28 — Sessão 7
 
-**Objetivo**: Fase 1.7 — migrar o Anchor (`../anchor`) pra consumir a Super API em vez de rodar
+**Objetivo**: Fase 1.7 — migrar o Anchor (`../anchor`) pra consumir a Finance API em vez de rodar
 `data-collector/main.py` localmente. Confirmado commit da Sessão 6 já estava no repo
 (`4072a3e`) antes de começar.
 
 **O que foi feito**:
 - 2 agentes `Explore` em paralelo (um por repo) mapearam o contrato completo: toda função de
   `anchor/data-collector/sources/*.py` (assinatura, shape de retorno, chaves de API) de um lado,
-  todo endpoint/schema da Super API do outro. Achado central: **a Super API não cobre 100% do
+  todo endpoint/schema da Finance API do outro. Achado central: **a Finance API não cobre 100% do
   que o Anchor fazia** — cotação/técnicos/dividendos/preço de ticker sem sufixo `.SA` (ação
   US/ETF US/REIT), indicadores imobiliários de REIT, IBOV, e `resolve_cnpj` de FII (nunca
   portada, decisão da Sessão 4) não têm endpoint equivalente.
@@ -280,30 +280,30 @@ não commitado — falta confirmar com o dono do projeto antes do push.
   dois com o dado que a CVM fornece. Confirmado com o dono do projeto: **não mexer**, documentar
   como limitação consciente (`PENDING.md` item P1) — "corrigir" arriscaria classificar um FII de
   papel válido como "não encontrado" na primeira chamada.
-- `anchor/data-collector/sources/super_api_client.py` (módulo novo, repo do Anchor): ~20
+- `anchor/data-collector/sources/finance_api_client.py` (módulo novo, repo do Anchor): ~20
   funções-wrapper que replicam a forma exata das funções antigas que substituem, escondendo o
-  loop por identificador (Super API só aceita um por chamada, decisão de design já registrada em
+  loop por identificador (Finance API só aceita um por chamada, decisão de design já registrada em
   `ARCHITECTURE.md`) — mantém o corpo das `collect_*` de `main.py` quase intocado.
 - Módulos deletados no Anchor (100% redundantes): `bcb_sgs.py`, `cvm_dfp.py`,
   `b3_index_stats.py`, `metais_yahoo.py`, `cripto_defillama.py`, `cripto_ultrasound.py`,
   `cripto_feargreed.py`, `cripto_coingecko.py`. Trimados (só a fatia migrada saiu):
   `acoes_bolsai.py`, `cvm_fii.py`, `sec_edgar.py`.
 - **2 bugs achados e corrigidos durante a validação ao vivo** (não durante o planejamento):
-  (1) primeira versão do `super_api_client.py` capturava `SuperApiError` genérico dentro do loop
-  por-ticker — rodando com a Super API derrubada de propósito (`docker compose stop api`), o
+  (1) primeira versão do `finance_api_client.py` capturava `FinanceApiError` genérico dentro do loop
+  por-ticker — rodando com a Finance API derrubada de propósito (`docker compose stop api`), o
   coletor terminava `exit 0`/"Updated 0 quote(s)" em vez de falhar alto, mascarando
   indisponibilidade total como "sem dado nenhum". Corrigido pra só capturar 404
-  (`SuperApiNotFoundError`) dentro do loop, erro de rede/5xx propaga. (2) `/v1/metals/{code}` e
+  (`FinanceApiNotFoundError`) dentro do loop, erro de rede/5xx propaga. (2) `/v1/metals/{code}` e
   `/v1/b3-indexes/{code}` usam catálogo minúsculo (`xau`, `ifix`), Anchor sempre trabalhou
   maiúsculo — `.lower()` só na URL, sem mudar o ticker gravado no SQLite dele. (3) códigos dos 4
   indicadores ETH usam hífen (`tvl-trend`), Anchor usa underscore internamente (`tvl_trend`,
   chave de `indicator_thresholds`) — corrigido nos call sites, sem tocar no schema do Anchor.
-- Validado ao vivo, ponta a ponta, contra a Super API real (`docker compose up`) e o
+- Validado ao vivo, ponta a ponta, contra a Finance API real (`docker compose up`) e o
   `anchor.db` real: `--ticker PETR4`/`MGLU3`, `crypto` (4 indicadores ETH), `--crypto-ticker
   BTC`, `--metal-ticker XAU`, `--benchmark-returns` (7 benchmarks), `--fii-cvm-data`, `--us-ticker
   AAPL` (payout 15,08%, mesmo número confirmado na Sessão 6). Confirmado que o que ficou local
-  segue funcionando sem a Super API: `--reit-ticker`, `--etf-us-ticker`, `--fii-resolve-cnpj`.
-  Suíte da Super API: 162/162 (sem regressão, nenhum endpoint tocado).
+  segue funcionando sem a Finance API: `--reit-ticker`, `--etf-us-ticker`, `--fii-resolve-cnpj`.
+  Suíte da Finance API: 162/162 (sem regressão, nenhum endpoint tocado).
 - `project/PENDING.md`, `PHASE.md`, `ROADMAP.md` (aqui) e `project/SESSIONS.md` do Anchor
   (Sessão 88, relato completo da migração do lado dele) atualizados.
 

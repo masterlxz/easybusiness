@@ -1,6 +1,6 @@
 # EasyBusiness
 
-Super API financeira open-source: centraliza, num serviço único, dados financeiros (mercado
+Finance API open-source: centraliza, num serviço único, dados financeiros (mercado
 BR/global, macroeconomia, cripto) hoje espalhados em fontes isoladas — ponto de partida do
 projeto irmão [Anchor](https://github.com/masterlxz/anchor), que resolve isso de forma
 específica pra si mesmo. Ver [`project/INDEX.md`](project/INDEX.md) pro histórico completo de
@@ -10,7 +10,7 @@ decisões (visão, arquitetura, roadmap, pendências).
 
 | Componente | Stack | Path |
 |---|---|---|
-| Super API | Python + FastAPI + PostgreSQL | [`api/`](api/) |
+| Finance API | Python + FastAPI + PostgreSQL | [`api/`](api/) |
 
 ## Rodando localmente
 
@@ -36,7 +36,7 @@ docker compose exec api pytest -v
 
 ## Status
 
-Projeto em desenvolvimento inicial (Fase 1 — Super API Financeira). Roadmap completo,
+Projeto em desenvolvimento inicial (Fase 1 — Finance API). Roadmap completo,
 decisões de arquitetura e o catálogo de fontes de dados em [`project/`](project/) — comece por
 [`project/INDEX.md`](project/INDEX.md).
 

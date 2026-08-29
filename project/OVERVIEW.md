@@ -7,7 +7,7 @@ Sessão 1 e removido do repo depois de incorporado à documentação — ver `CO
 `ROADMAP.md` para o conteúdo completo).
 
 **MVP atual (decidido na Sessão 1)**: em vez de atacar as 3 camadas do blueprint de uma vez, o
-ponto de partida é a **Super API financeira**, que alimenta um **Super Banco de Dados**
+ponto de partida é a **Finance API**, que alimenta um **Finance DB**
 centralizado. A ideia nasce de um problema concreto: o projeto irmão
 [Anchor](../../anchor) já resolve boa parte da coleta de dados financeiros (cotações B3,
 cripto, macro, fundamentos) espalhada em ~12 scripts Python independentes, cada um falando com
@@ -25,7 +25,7 @@ ver `ARCHITECTURE.md`, seção "Decisões de Arquitetura em Aberto").
 # Status Geral
 
 ```
-Fase 1 — Super API Financeira + Super DB (MVP)   [~] Em andamento (1.1-1.6/8 concluídas)
+Fase 1 — Finance API + Finance DB (MVP)          [~] Em andamento (1.1-1.7/8 concluídas)
 Fase 2 — Engine Fiscal (SEFAZ)                    [ ] Não iniciada
 Fase 3 — Meta Cloud API & Automação (WhatsApp)    [ ] Não iniciada
 Fase 4 — Workspace Web App                        [ ] Não iniciada
@@ -37,6 +37,7 @@ Fase 4 — Workspace Web App                        [ ] Não iniciada
 
 Fase 1 em andamento — as 11 fontes do catálogo original (`CONTEXT.md`) estão todas portadas
 (`api/`: BCB SGS, Yahoo Finance, CVM DFP+FII, cripto, B3 index stats, Yahoo Metais, bolsai, SEC
-EDGAR), cache-through via Postgres, auth por API key, 162 testes automatizados passando. Faltam
-as etapas 1.7-1.8 (migrar o Anchor pra consumir a API, documentação pública). Esta seção será
-preenchida com um checklist de release real quando a Fase 1 estiver completa.
+EDGAR), cache-through via Postgres, auth por API key, 162 testes automatizados passando. O
+Anchor já consome a Finance API (migração híbrida, Sessão 7 — ver `PHASE.md` 1.7). Falta a
+etapa 1.8 (documentação pública). Esta seção será preenchida com um checklist de release real
+quando a Fase 1 estiver completa.

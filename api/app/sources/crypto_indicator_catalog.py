@@ -3,7 +3,7 @@
 Deliberately locked to the 4 codes already validated in production by the
 Anchor project (see project/CONTEXT.md) — no threshold/classification here
 (GREEN/NEUTRAL/RED is application-level domain logic in Anchor, not part of
-the data the Super API serves; consumers apply their own thresholds to the
+the data the Finance API serves; consumers apply their own thresholds to the
 raw value). Each entry's `fetch` returns a bare float; the service layer
 wraps it into the `{"raw_value": ...}` shape `single_row_cache` expects.
 """
