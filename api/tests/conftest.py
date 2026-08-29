@@ -29,7 +29,10 @@ def db_session():
                 "crypto_quotes, crypto_price_history, "
                 "b3_index_history, metal_quotes, metal_price_history, "
                 "stock_bolsai_fundamentals, sec_edgar_cik_resolution, "
-                "us_stock_fundamentals, us_stock_dcf_fundamentals, us_stock_payout_avg"
+                "us_stock_fundamentals, us_stock_dcf_fundamentals, us_stock_payout_avg, "
+                "us_stock_quotes, us_stock_technicals, us_stock_dividends_avg, "
+                "us_stock_price_history, us_stock_dividend_payments, reit_fundamentals, "
+                "fii_cnpj_resolution"
             )
         )
         session.commit()

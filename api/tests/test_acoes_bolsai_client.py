@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from app.sources.acoes_bolsai import BolsaiError, fetch_fundamentals
+from app.sources.acoes_bolsai import BolsaiError, fetch_fii_summary, fetch_fundamentals
 
 
 def _fake_response(status_code, payload=None):
@@ -62,3 +62,27 @@ def test_fetch_fundamentals_wraps_network_error():
     ):
         with pytest.raises(BolsaiError):
             fetch_fundamentals("PETR4", api_key="fake-key")
+
+
+def test_fetch_fii_summary_parses_payload():
+    payload = {
+        "ticker": "HGLG11",
+        "name": "CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO",
+        "administrator_cnpj": "27.809.513/0001-30",
+    }
+    with patch(
+        "app.sources.acoes_bolsai.requests.get", return_value=_fake_response(200, payload)
+    ):
+        result = fetch_fii_summary("HGLG11", api_key="fake-key")
+
+    assert result == payload
+
+
+def test_fetch_fii_summary_returns_none_on_404():
+    with patch("app.sources.acoes_bolsai.requests.get", return_value=_fake_response(404)):
+        assert fetch_fii_summary("NOTAFII1", api_key="fake-key") is None
+
+
+def test_fetch_fii_summary_raises_without_api_key():
+    with pytest.raises(BolsaiError):
+        fetch_fii_summary("HGLG11", api_key="")

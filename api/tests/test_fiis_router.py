@@ -76,3 +76,24 @@ def test_properties_returns_200_with_possibly_empty_data(db_session, monkeypatch
 
     assert response.status_code == 200
     assert response.json()["data"] == []
+
+
+def test_resolve_cnpj_returns_200(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    resolution = {"cnpj": CNPJ, "fund_name": "CSHG LOGISTICA FII"}
+    with patch("app.services.fii_service.resolve_cnpj", return_value=resolution):
+        response = client.get("/v1/fiis/resolve/HGLG11", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 200
+    assert response.json()["cnpj"] == CNPJ
+    assert response.json()["ticker"] == "HGLG11"
+
+
+def test_resolve_cnpj_returns_404_when_unresolved(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    with patch("app.services.fii_service.resolve_cnpj", return_value=None):
+        response = client.get("/v1/fiis/resolve/AMBIGUOUS1", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 404

@@ -58,3 +58,36 @@ def fetch_fundamentals(ticker: str, api_key: str) -> dict | None:
         }
     except (requests.RequestException, ValueError, KeyError) as exc:
         raise BolsaiError(f"bolsai request failed for '{ticker}': {exc}") from exc
+
+
+def fetch_fii_summary(ticker: str, api_key: str) -> dict | None:
+    """Fase 1.11.3 — FII summary (`GET /fiis/{ticker}`, free plan), used
+    only as an auxiliary step of `app.sources.cvm_fii.resolve_cnpj`: bolsai
+    doesn't return the fund's own CNPJ (only `administrator_cnpj`, whose
+    administrator manages dozens of funds), so this alone can't identify
+    the fund — combined with `name` (matched exactly against CVM's
+    `Nome_Fundo_Classe`) it narrows the match down safely.
+
+    Returns `{"ticker", "name", "administrator_cnpj"}`, or `None` if the
+    ticker doesn't exist / isn't a FII (404) — not an error.
+    """
+    if not api_key:
+        raise BolsaiError("BOLSAI_API_KEY is not configured")
+
+    try:
+        response = requests.get(
+            f"{BOLSAI_BASE_URL}/fiis/{ticker}",
+            headers={"X-API-Key": api_key},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        payload = response.json()
+        return {
+            "ticker": payload["ticker"],
+            "name": payload["name"],
+            "administrator_cnpj": payload["administrator_cnpj"],
+        }
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        raise BolsaiError(f"bolsai FII request failed for '{ticker}': {exc}") from exc

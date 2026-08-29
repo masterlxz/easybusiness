@@ -9,8 +9,14 @@ from app.sources.cvm_fii import (
     fetch_monthly_indicators,
     fetch_property_data,
     normalize_cnpj,
+    resolve_cnpj,
 )
-from tests.cvm_fixtures import FII_COMPLEMENTO_FIELDS, FII_IMOVEL_FIELDS, build_zip
+from tests.cvm_fixtures import (
+    FII_COMPLEMENTO_FIELDS,
+    FII_GERAL_FIELDS,
+    FII_IMOVEL_FIELDS,
+    build_zip,
+)
 
 YEAR = datetime.now(timezone.utc).year
 CNPJ_PUNCTUATED = "00.332.266/0001-31"
@@ -153,3 +159,91 @@ def test_fetch_property_data_empty_for_unknown_fund(tmp_path):
             "app.sources.cvm_fii.requests.get", return_value=_fake_response(_trimestral_zip())
         ):
             assert fetch_property_data("99999999000199") == []
+
+
+ADMIN_CNPJ_PUNCTUATED = "27.809.513/0001-30"
+ADMIN_CNPJ_DIGITS = "27809513000130"
+FUND_NAME = "CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO"
+
+
+def _geral_zip(rows=None):
+    filename = f"inf_mensal_fii_geral_{YEAR}.csv"
+    if rows is None:
+        rows = [
+            {
+                "CNPJ_Fundo_Classe": CNPJ_PUNCTUATED,
+                "CNPJ_Administrador": ADMIN_CNPJ_PUNCTUATED,
+                "Nome_Fundo_Classe": FUND_NAME,
+            }
+        ]
+    return build_zip({filename: rows}, {filename: FII_GERAL_FIELDS})
+
+
+def _bolsai_summary(name=FUND_NAME, administrator_cnpj=ADMIN_CNPJ_PUNCTUATED):
+    return {"ticker": "HGLG11", "name": name, "administrator_cnpj": administrator_cnpj}
+
+
+def test_resolve_cnpj_matches_administrator_and_name(tmp_path):
+    with patch("app.sources.cvm_fii.CACHE_DIR", tmp_path):
+        with patch(
+            "app.sources.cvm_fii.acoes_bolsai.fetch_fii_summary", return_value=_bolsai_summary()
+        ):
+            with patch(
+                "app.sources.cvm_fii.requests.get", return_value=_fake_response(_geral_zip())
+            ):
+                result = resolve_cnpj("HGLG11", "fake-key")
+
+    assert result == {"cnpj": CNPJ_DIGITS, "fund_name": FUND_NAME}
+
+
+def test_resolve_cnpj_returns_none_when_bolsai_has_no_summary(tmp_path):
+    with patch("app.sources.cvm_fii.acoes_bolsai.fetch_fii_summary", return_value=None):
+        assert resolve_cnpj("NOTAFII1", "fake-key") is None
+
+
+def test_resolve_cnpj_returns_none_when_administrator_does_not_match(tmp_path):
+    with patch("app.sources.cvm_fii.CACHE_DIR", tmp_path):
+        with patch(
+            "app.sources.cvm_fii.acoes_bolsai.fetch_fii_summary",
+            return_value=_bolsai_summary(administrator_cnpj="99.999.999/0001-99"),
+        ):
+            with patch(
+                "app.sources.cvm_fii.requests.get", return_value=_fake_response(_geral_zip())
+            ):
+                assert resolve_cnpj("HGLG11", "fake-key") is None
+
+
+def test_resolve_cnpj_returns_none_when_name_does_not_match(tmp_path):
+    with patch("app.sources.cvm_fii.CACHE_DIR", tmp_path):
+        with patch(
+            "app.sources.cvm_fii.acoes_bolsai.fetch_fii_summary",
+            return_value=_bolsai_summary(name="OUTRO FUNDO"),
+        ):
+            with patch(
+                "app.sources.cvm_fii.requests.get", return_value=_fake_response(_geral_zip())
+            ):
+                assert resolve_cnpj("HGLG11", "fake-key") is None
+
+
+def test_resolve_cnpj_returns_none_when_ambiguous(tmp_path):
+    rows = [
+        {
+            "CNPJ_Fundo_Classe": CNPJ_PUNCTUATED,
+            "CNPJ_Administrador": ADMIN_CNPJ_PUNCTUATED,
+            "Nome_Fundo_Classe": FUND_NAME,
+        },
+        {
+            "CNPJ_Fundo_Classe": "11111111000199",
+            "CNPJ_Administrador": ADMIN_CNPJ_PUNCTUATED,
+            "Nome_Fundo_Classe": FUND_NAME,
+        },
+    ]
+    with patch("app.sources.cvm_fii.CACHE_DIR", tmp_path):
+        with patch(
+            "app.sources.cvm_fii.acoes_bolsai.fetch_fii_summary", return_value=_bolsai_summary()
+        ):
+            with patch(
+                "app.sources.cvm_fii.requests.get",
+                return_value=_fake_response(_geral_zip(rows)),
+            ):
+                assert resolve_cnpj("HGLG11", "fake-key") is None

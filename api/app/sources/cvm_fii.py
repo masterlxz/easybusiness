@@ -18,10 +18,12 @@ Two reports used here, schema confirmed against the real files:
   address/area/% leased/% of fund revenue.
 
 Market price and dividend payments don't come from here — CVM is the
-regulator, not the exchange; those come from `acoes_yahoo.py`. Ticker→CNPJ
-resolution (Anchor's `resolve_cnpj`) isn't ported — it depends on the
-bolsai fundamentals API (not yet ported, see project/CONTEXT.md); callers
-must already know the fund's CNPJ.
+regulator, not the exchange; those come from `acoes_yahoo.py`.
+
+**Fase 1.11.3**: `resolve_cnpj` (ticker -> CNPJ) ported from Anchor —
+combines `acoes_bolsai.fetch_fii_summary` (official fund name + the
+administrator's CNPJ) with the public `geral` file of the CVM's monthly
+report (which has `Nome_Fundo_Classe` but no ticker).
 """
 from __future__ import annotations
 
@@ -33,6 +35,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 import requests
+
+from app.sources import acoes_bolsai
 
 CVM_FII_BASE_URL = "https://dados.cvm.gov.br/dados/FII/DOC"
 CACHE_DIR = Path(__file__).parent.parent.parent / ".cache" / "cvm_fii"
@@ -182,3 +186,50 @@ def fetch_property_data(cnpj: str) -> list[dict]:
             }
         )
     return results
+
+
+def _normalize_name(name: str) -> str:
+    return re.sub(r"\s+", " ", name).strip().upper()
+
+
+def resolve_cnpj(ticker: str, bolsai_api_key: str) -> dict | None:
+    """Resolves the fund's (not the administrator's) CNPJ from `ticker`,
+    combining bolsai (official fund name + administrator's CNPJ) with the
+    CVM's public `geral` file of the monthly report (which has
+    `Nome_Fundo_Classe` but no ticker).
+
+    Match required: `CNPJ_Administrador` matching (narrows the universe — a
+    common administrator manages dozens of funds, confirmed live against
+    Banco Genial) **and** `Nome_Fundo_Classe` matching exactly (normalized
+    only by whitespace/case, no accent stripping — confirmed the bolsai
+    name matches the CVM one character-for-character for a real HGLG11).
+    Zero or more than one match -> `None`, never guesses (same discipline
+    as `cvm_dfp.py`'s `_find_exact`) — same behavior as the Anchor project's
+    original `resolve_cnpj`.
+    """
+    summary = acoes_bolsai.fetch_fii_summary(ticker, bolsai_api_key)
+    if summary is None:
+        return None
+
+    admin_cnpj_digits = normalize_cnpj(summary["administrator_cnpj"])
+    target_name = _normalize_name(summary["name"])
+
+    zip_path = _resolve_zip("mensal")
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            filename = next(n for n in zf.namelist() if n.startswith("inf_mensal_fii_geral_"))
+            rows = _read_csv(zf, filename)
+    except (zipfile.BadZipFile, StopIteration) as exc:
+        raise CvmFiiDataError(f"CVM FII zip parse failed: {exc}") from exc
+
+    candidates = {
+        normalize_cnpj(row["CNPJ_Fundo_Classe"])
+        for row in rows
+        if normalize_cnpj(row["CNPJ_Administrador"]) == admin_cnpj_digits
+        and _normalize_name(row["Nome_Fundo_Classe"]) == target_name
+    }
+
+    if len(candidates) != 1:
+        return None
+
+    return {"cnpj": next(iter(candidates)), "fund_name": summary["name"]}

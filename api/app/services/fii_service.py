@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.models.fii import FiiMonthlyIndicator, FiiProperty
+from app.models.fii import FiiCnpjResolution, FiiMonthlyIndicator, FiiProperty
 from app.services.freshness import is_fresh
 from app.services.single_row_cache import get_or_refresh_single_row
 from app.sources.cvm_fii import (
@@ -24,16 +24,26 @@ from app.sources.cvm_fii import (
     fetch_monthly_indicators,
     fetch_property_data,
     normalize_cnpj,
+    resolve_cnpj,
 )
+from app.sources.acoes_bolsai import BolsaiError
 
 logger = logging.getLogger(__name__)
 
 SOURCE_NAME = "cvm_fii"
+RESOLUTION_SOURCE_NAME = "cvm_fii+bolsai"
 
 
 class FundNotFoundError(ValueError):
     """Raised when a CNPJ has no data of the requested kind and no cache
     exists — a legitimate absence of data, not a source failure."""
+
+
+class TickerNotResolvedError(ValueError):
+    """Raised when a ticker can't be resolved to a fund CNPJ (bolsai
+    doesn't know the ticker, or the CVM match came back empty/ambiguous)
+    and no cache exists — a legitimate absence of data, not a source
+    failure. Fase 1.11.3."""
 
 
 def get_or_refresh_monthly_indicators(db: Session, cnpj: str, ttl_seconds: int) -> dict:
@@ -108,4 +118,30 @@ def get_or_refresh_properties(db: Session, cnpj: str, ttl_seconds: int) -> dict:
         "stale": stale,
         "fetched_at": max((r.fetched_at for r in rows), default=None),
         "data": rows,
+    }
+
+
+def get_or_refresh_cnpj_resolution(
+    db: Session, ticker: str, ttl_seconds: int, bolsai_api_key: str
+) -> dict:
+    """Fase 1.11.3 — ticker -> fund CNPJ, essentially permanent once
+    resolved (a fund's CNPJ never changes), same "resolve once, cache long"
+    shape as SecEdgarCikResolution/CryptoCoinResolution."""
+    ticker_upper = ticker.upper()
+
+    def _fetch(_ticker):
+        return resolve_cnpj(ticker_upper, bolsai_api_key)
+
+    row, cached, stale = get_or_refresh_single_row(
+        db, FiiCnpjResolution, FiiCnpjResolution.ticker, ticker_upper, ttl_seconds, _fetch,
+        RESOLUTION_SOURCE_NAME, (CvmFiiDataError, BolsaiError), TickerNotResolvedError,
+    )
+    return {
+        "ticker": ticker_upper,
+        "source": RESOLUTION_SOURCE_NAME,
+        "cached": cached,
+        "stale": stale,
+        "fetched_at": row.fetched_at,
+        "cnpj": row.cnpj,
+        "fund_name": row.fund_name,
     }

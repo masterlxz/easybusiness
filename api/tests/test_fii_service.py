@@ -5,9 +5,12 @@ import pytest
 
 from app.services.fii_service import (
     FundNotFoundError,
+    TickerNotResolvedError,
+    get_or_refresh_cnpj_resolution,
     get_or_refresh_monthly_indicators,
     get_or_refresh_properties,
 )
+from app.sources.acoes_bolsai import BolsaiError
 from app.sources.cvm_fii import CvmFiiDataError
 
 CNPJ_PUNCTUATED = "00.332.266/0001-31"
@@ -128,3 +131,63 @@ def test_properties_source_error_with_cache_serves_stale(db_session):
 
     assert result["stale"] is True
     assert len(result["data"]) == 1
+
+
+# --- ticker -> CNPJ resolution (Fase 1.11.3) --------------------------------
+
+
+def _resolution():
+    return {"cnpj": CNPJ_DIGITS, "fund_name": "CSHG LOGISTICA FII"}
+
+
+def test_cnpj_resolution_first_call_fetches_and_caches(db_session):
+    with patch(
+        "app.services.fii_service.resolve_cnpj", return_value=_resolution()
+    ) as mock_resolve:
+        result = get_or_refresh_cnpj_resolution(
+            db_session, "hglg11", ttl_seconds=3600, bolsai_api_key="fake-key"
+        )
+
+    mock_resolve.assert_called_with("HGLG11", "fake-key")
+    assert result["ticker"] == "HGLG11"
+    assert result["cnpj"] == CNPJ_DIGITS
+    assert result["cached"] is False
+
+
+def test_cnpj_resolution_second_call_within_ttl_uses_cache(db_session):
+    with patch(
+        "app.services.fii_service.resolve_cnpj", return_value=_resolution()
+    ) as mock_resolve:
+        get_or_refresh_cnpj_resolution(
+            db_session, "HGLG11", ttl_seconds=3600, bolsai_api_key="fake-key"
+        )
+        result = get_or_refresh_cnpj_resolution(
+            db_session, "HGLG11", ttl_seconds=3600, bolsai_api_key="fake-key"
+        )
+
+    assert mock_resolve.call_count == 1
+    assert result["cached"] is True
+
+
+def test_cnpj_resolution_unresolved_without_cache_raises(db_session):
+    with patch("app.services.fii_service.resolve_cnpj", return_value=None):
+        with pytest.raises(TickerNotResolvedError):
+            get_or_refresh_cnpj_resolution(
+                db_session, "AMBIGUOUS1", ttl_seconds=3600, bolsai_api_key="fake-key"
+            )
+
+
+def test_cnpj_resolution_source_error_with_cache_serves_stale(db_session):
+    with patch("app.services.fii_service.resolve_cnpj", return_value=_resolution()):
+        get_or_refresh_cnpj_resolution(
+            db_session, "HGLG11", ttl_seconds=0, bolsai_api_key="fake-key"
+        )
+    with patch(
+        "app.services.fii_service.resolve_cnpj", side_effect=BolsaiError("down")
+    ):
+        result = get_or_refresh_cnpj_resolution(
+            db_session, "HGLG11", ttl_seconds=0, bolsai_api_key="fake-key"
+        )
+
+    assert result["stale"] is True
+    assert result["cnpj"] == CNPJ_DIGITS

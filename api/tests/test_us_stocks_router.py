@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -5,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.database import get_db
 from app.main import app
+from app.sources.acoes_yahoo import YahooFinanceError
 
 API_KEY_HEADER = {"X-API-Key": "test-key"}
 
@@ -90,3 +92,77 @@ def test_payout_returns_200(db_session, monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["payout_avg_5y"] == 20.0
+
+
+def test_reit_fundamentals_returns_200(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    fields = {
+        "reference_year": 2025, "revenue": 900.0, "real_estate_property_net": 5000.0,
+        "real_estate_property_at_cost": 6000.0, "stockholders_equity": 1000.0,
+        "net_income": 200.0, "eps_diluted": 2.5,
+    }
+    with patch("app.services.us_stock_service.resolve_cik", return_value=1048286):
+        with patch(
+            "app.services.us_stock_service.fetch_reit_fundamentals", return_value=fields
+        ):
+            response = client.get("/v1/us-stocks/O/reit-fundamentals", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 200
+    assert response.json()["data"][0]["revenue"] == 900.0
+
+
+def test_reit_fundamentals_returns_404_for_unknown_ticker(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    with patch("app.services.us_stock_service.resolve_cik", return_value=None):
+        response = client.get(
+            "/v1/us-stocks/NOTATICKER/reit-fundamentals", headers=API_KEY_HEADER
+        )
+    _teardown()
+
+    assert response.status_code == 404
+
+
+# --- Fase 1.11.1 — Yahoo Finance without ".SA" -----------------------------
+
+
+def test_quote_returns_200(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    quote = {"price": 150.0, "name": "Apple Inc.", "exchange": "NASDAQ", "currency": "USD"}
+    with patch("app.services.us_stock_service.fetch_quote", return_value=quote):
+        response = client.get("/v1/us-stocks/AAPL/quote", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 200
+    assert response.json()["price"] == 150.0
+
+
+def test_quote_returns_502_on_source_failure(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    with patch(
+        "app.services.us_stock_service.fetch_quote", side_effect=YahooFinanceError("down")
+    ):
+        response = client.get("/v1/us-stocks/UNKNOWNX/quote", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 502
+
+
+def test_dividends_avg_returns_404_for_no_data(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    with patch("app.services.us_stock_service.fetch_dividends_avg", return_value=None):
+        response = client.get("/v1/us-stocks/GROWTHCO/dividends-avg", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 404
+
+
+def test_price_history_returns_200(db_session, monkeypatch):
+    client = _client_with_auth(db_session, monkeypatch)
+    points = [{"price_date": date(2026, 1, 2), "close_price": 150.0}]
+    with patch("app.services.us_stock_service.fetch_price_history", return_value=points):
+        response = client.get("/v1/us-stocks/AAPL/price-history", headers=API_KEY_HEADER)
+    _teardown()
+
+    assert response.status_code == 200
+    assert response.json()["data"][0]["close_price"] == 150.0

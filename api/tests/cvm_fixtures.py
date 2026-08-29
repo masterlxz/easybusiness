@@ -27,6 +27,7 @@ FII_IMOVEL_FIELDS = [
     "Percentual_Vacancia", "Percentual_Inadimplencia", "Percentual_Receitas_FII",
     "Percentual_Locado",
 ]
+FII_GERAL_FIELDS = ["CNPJ_Fundo_Classe", "CNPJ_Administrador", "Nome_Fundo_Classe"]
 
 
 def _csv_line(fields: list[str], values: dict) -> str:

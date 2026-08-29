@@ -27,6 +27,24 @@ class FiiMonthlyIndicator(Base):
     )
 
 
+class FiiCnpjResolution(Base):
+    """Fase 1.11.3 — cached ticker -> fund CNPJ resolution, one row per
+    ticker, overwritten on refresh. Essentially permanent (a fund's CNPJ
+    never changes), same reasoning as SecEdgarCikResolution/
+    CryptoCoinResolution."""
+
+    __tablename__ = "fii_cnpj_resolution"
+
+    ticker: Mapped[str] = mapped_column(String(32), primary_key=True)
+    cnpj: Mapped[str] = mapped_column(String(14), nullable=False)
+    fund_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class FiiProperty(Base):
     """One property from a fund's latest quarterly report — refreshed via
     delete-then-insert per CNPJ (see app/services/fii_service.py), not

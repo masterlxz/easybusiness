@@ -41,3 +41,15 @@ class FiiPropertiesResponse(BaseModel):
     data: list[FiiPropertyPoint]
 
     model_config = {"from_attributes": True}
+
+
+class FiiCnpjResolutionResponse(BaseModel):
+    ticker: str
+    source: str
+    cached: bool
+    stale: bool
+    fetched_at: datetime | None
+    cnpj: str
+    fund_name: str
+
+    model_config = {"from_attributes": True}

@@ -7,7 +7,7 @@ from app.models.crypto import (
     CryptoPriceHistory,
     CryptoQuote,
 )
-from app.models.fii import FiiMonthlyIndicator, FiiProperty
+from app.models.fii import FiiCnpjResolution, FiiMonthlyIndicator, FiiProperty
 from app.models.macro_series import MacroSeriesMonthly
 from app.models.metal import MetalPriceHistory, MetalQuote
 from app.models.stock import (
@@ -19,10 +19,16 @@ from app.models.stock import (
     StockTechnicals,
 )
 from app.models.us_stock import (
+    ReitFundamentals,
     SecEdgarCikResolution,
     UsStockDcfFundamentals,
+    UsStockDividendPayment,
+    UsStockDividendsAvg,
     UsStockFundamentals,
     UsStockPayoutAvg,
+    UsStockPriceHistory,
+    UsStockQuote,
+    UsStockTechnicals,
 )
 
 __all__ = [
@@ -38,6 +44,7 @@ __all__ = [
     "CompanyDcfFundamentals",
     "FiiMonthlyIndicator",
     "FiiProperty",
+    "FiiCnpjResolution",
     "CryptoIndicator",
     "CryptoFearGreed",
     "CryptoCoinResolution",
@@ -50,4 +57,10 @@ __all__ = [
     "UsStockFundamentals",
     "UsStockDcfFundamentals",
     "UsStockPayoutAvg",
+    "UsStockQuote",
+    "UsStockTechnicals",
+    "UsStockDividendsAvg",
+    "UsStockPriceHistory",
+    "UsStockDividendPayment",
+    "ReitFundamentals",
 ]

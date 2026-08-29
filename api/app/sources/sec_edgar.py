@@ -425,3 +425,69 @@ def fetch_payout(cik: int, contact_email: str) -> dict | None:
         return None
 
     return {"payout_avg_5y": total_dividends / total_income * 100}
+
+
+def fetch_reit_fundamentals(cik: int, contact_email: str) -> dict | None:
+    """Fase 1.11.2 — real-estate indicators for `cik`'s most recent fiscal
+    year. LPA/VPA/ROE and the DCF fields don't fit real estate the same way
+    they fit a regular company (same reasoning CVM's FII data never gets
+    those either), so REITs get their own shape.
+
+    **Confirmed live against Realty Income, Simon Property, Prologis and
+    AvalonBay**: FFO/AFFO and occupancy rate — the indicators that actually
+    define a REIT — aren't XBRL tags in any taxonomy (`us-gaap`/`srt`/
+    `invest`); they're non-GAAP, reported only as text/tables in the 10-K.
+    What's left automatable: revenue, real estate property value, equity,
+    LPA, net income.
+
+    Required (returns `None` if missing): revenue, stockholders_equity,
+    eps_diluted — the 3 tags consistent across all 4 REITs tested. Optional:
+    real estate property value (net/at cost), net income (`NetIncomeLoss`
+    is inconsistent across REITs — Simon Property, an UPREIT, doesn't
+    report it, uses `ProfitLoss` instead — handled as a tag fallback).
+    """
+    if not contact_email:
+        raise SecEdgarError("SEC_EDGAR_CONTACT_EMAIL is not configured")
+
+    revenue_row = _try_tags(
+        cik,
+        ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"],
+        _latest_duration,
+        contact_email,
+    )
+    if revenue_row is None:
+        return None
+
+    try:
+        equity = _required(
+            cik, ["StockholdersEquity"], lambda rows: _latest_instant(rows, 0), contact_email
+        )
+        eps = _required(cik, ["EarningsPerShareDiluted"], _latest_duration, contact_email)
+    except LookupError:
+        return None
+
+    return {
+        "reference_year": revenue_row["fy"],
+        "revenue": _to_millions(revenue_row["val"]),
+        "real_estate_property_net": _to_millions_or_none(
+            _optional(
+                cik,
+                ["RealEstateInvestmentPropertyNet"],
+                lambda rows: _latest_instant(rows, 0),
+                contact_email,
+            )
+        ),
+        "real_estate_property_at_cost": _to_millions_or_none(
+            _optional(
+                cik,
+                ["RealEstateInvestmentPropertyAtCost"],
+                lambda rows: _latest_instant(rows, 0),
+                contact_email,
+            )
+        ),
+        "stockholders_equity": _to_millions(equity),
+        "net_income": _to_millions_or_none(
+            _optional(cik, ["NetIncomeLoss", "ProfitLoss"], _latest_duration, contact_email)
+        ),
+        "eps_diluted": eps,
+    }

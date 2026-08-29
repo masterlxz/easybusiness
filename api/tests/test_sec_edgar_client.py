@@ -9,6 +9,7 @@ from app.sources.sec_edgar import (
     fetch_dcf_fundamentals,
     fetch_fundamentals,
     fetch_payout,
+    fetch_reit_fundamentals,
     resolve_cik,
 )
 
@@ -211,3 +212,68 @@ def test_fetch_payout_returns_none_without_net_income():
         "app.sources.sec_edgar.requests.get", return_value=_not_found_response()
     ):
         assert fetch_payout(999999, CONTACT_EMAIL) is None
+
+
+def test_fetch_reit_fundamentals_computes_all_fields():
+    responses = {
+        "Revenues": _concept_response([_duration_row(900_000_000)]),
+        "RevenueFromContractWithCustomerExcludingAssessedTax": _not_found_response(),
+        "StockholdersEquity": _concept_response([_instant_row(1_000_000_000)]),
+        "EarningsPerShareDiluted": _concept_response([_duration_row(2.5)]),
+        "RealEstateInvestmentPropertyNet": _concept_response([_instant_row(5_000_000_000)]),
+        "RealEstateInvestmentPropertyAtCost": _concept_response([_instant_row(6_000_000_000)]),
+        "NetIncomeLoss": _concept_response([_duration_row(200_000_000)]),
+        "ProfitLoss": _not_found_response(),
+    }
+
+    def fake_get(url, **kwargs):
+        for tag, resp in responses.items():
+            if url.endswith(f"/{tag}.json"):
+                return resp
+        raise AssertionError(f"unexpected URL: {url}")
+
+    with patch("app.sources.sec_edgar.requests.get", side_effect=fake_get):
+        result = fetch_reit_fundamentals(1048286, CONTACT_EMAIL)
+
+    assert result["reference_year"] == 2025
+    assert result["revenue"] == 900.0
+    assert result["real_estate_property_net"] == 5000.0
+    assert result["real_estate_property_at_cost"] == 6000.0
+    assert result["stockholders_equity"] == 1000.0
+    assert result["net_income"] == 200.0
+    assert result["eps_diluted"] == 2.5
+
+
+def test_fetch_reit_fundamentals_falls_back_to_profit_loss():
+    """Mirrors the Simon Property finding: an UPREIT can report ProfitLoss
+    instead of NetIncomeLoss — net_income must still resolve."""
+    responses = {
+        "Revenues": _concept_response([_duration_row(900_000_000)]),
+        "RevenueFromContractWithCustomerExcludingAssessedTax": _not_found_response(),
+        "StockholdersEquity": _concept_response([_instant_row(1_000_000_000)]),
+        "EarningsPerShareDiluted": _concept_response([_duration_row(2.5)]),
+        "RealEstateInvestmentPropertyNet": _not_found_response(),
+        "RealEstateInvestmentPropertyAtCost": _not_found_response(),
+        "NetIncomeLoss": _not_found_response(),
+        "ProfitLoss": _concept_response([_duration_row(150_000_000)]),
+    }
+
+    def fake_get(url, **kwargs):
+        for tag, resp in responses.items():
+            if url.endswith(f"/{tag}.json"):
+                return resp
+        raise AssertionError(f"unexpected URL: {url}")
+
+    with patch("app.sources.sec_edgar.requests.get", side_effect=fake_get):
+        result = fetch_reit_fundamentals(1048286, CONTACT_EMAIL)
+
+    assert result["net_income"] == 150.0
+    assert result["real_estate_property_net"] is None
+    assert result["real_estate_property_at_cost"] is None
+
+
+def test_fetch_reit_fundamentals_returns_none_without_revenue():
+    with patch(
+        "app.sources.sec_edgar.requests.get", return_value=_not_found_response()
+    ):
+        assert fetch_reit_fundamentals(999999, CONTACT_EMAIL) is None
