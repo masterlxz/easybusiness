@@ -6,16 +6,19 @@ from app.config import Settings, get_settings
 from app.database import get_db
 from app.schemas.company import (
     CompanyDcfFundamentalsResponse,
+    CompanyDividendNoticesResponse,
     CompanyPayoutResponse,
     CompanyRoeResponse,
 )
 from app.services.company_service import (
     CompanyNotFoundError,
     get_or_refresh_dcf_fundamentals,
+    get_or_refresh_dividend_notices,
     get_or_refresh_payout,
     get_or_refresh_roe,
 )
 from app.sources.cvm_dfp import CvmDataError
+from app.sources.cvm_ipe import CvmIpeError
 
 router = APIRouter(prefix="/v1/companies/{cvm_code}", tags=["companies"])
 
@@ -71,4 +74,17 @@ def get_dcf_fundamentals(
             detail=f"No DCF fundamentals available for CVM code {cvm_code}",
         )
     except CvmDataError:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=SOURCE_UNAVAILABLE_DETAIL)
+
+
+@router.get("/dividend-notices", response_model=CompanyDividendNoticesResponse)
+def get_dividend_notices(
+    cvm_code: int,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_api_key),
+):
+    try:
+        return get_or_refresh_dividend_notices(db, cvm_code, settings.cache_ttl_seconds)
+    except CvmIpeError:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=SOURCE_UNAVAILABLE_DETAIL)

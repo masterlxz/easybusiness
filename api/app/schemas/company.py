@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -22,6 +22,25 @@ class CompanyPayoutResponse(BaseModel):
     stale: bool
     fetched_at: datetime | None
     payout_avg_5y: float
+
+    model_config = {"from_attributes": True}
+
+
+class CompanyDividendNoticePoint(BaseModel):
+    protocolo_entrega: str
+    data_entrega: date
+    link_download: str
+
+    model_config = {"from_attributes": True}
+
+
+class CompanyDividendNoticesResponse(BaseModel):
+    cvm_code: int
+    source: str
+    cached: bool
+    stale: bool
+    fetched_at: datetime | None
+    data: list[CompanyDividendNoticePoint]
 
     model_config = {"from_attributes": True}
 

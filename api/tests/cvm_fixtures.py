@@ -29,6 +29,28 @@ FII_IMOVEL_FIELDS = [
 ]
 FII_GERAL_FIELDS = ["CNPJ_Fundo_Classe", "CNPJ_Administrador", "Nome_Fundo_Classe"]
 
+IPE_FIELDS = [
+    "CNPJ_Companhia", "Nome_Companhia", "Codigo_CVM", "Data_Referencia", "Categoria", "Tipo",
+    "Especie", "Assunto", "Data_Entrega", "Tipo_Apresentacao", "Protocolo_Entrega", "Versao",
+    "Link_Download",
+]
+
+
+def ipe_row(
+    cvm_code="001023",
+    categoria="Relatório Proventos",
+    data_entrega="2026-02-11",
+    protocolo="1477025",
+    link="https://www.rad.cvm.gov.br/ENET/frmDownloadDocumento.aspx?numProtocolo=1477025",
+):
+    return {
+        "CNPJ_Companhia": "00.000.000/0001-91", "Nome_Companhia": "BCO BRASIL S.A.",
+        "Codigo_CVM": cvm_code, "Data_Referencia": data_entrega, "Categoria": categoria,
+        "Tipo": "Provento", "Especie": "", "Assunto": "", "Data_Entrega": data_entrega,
+        "Tipo_Apresentacao": "AP - Apresentação", "Protocolo_Entrega": protocolo, "Versao": "1",
+        "Link_Download": link,
+    }
+
 
 def _csv_line(fields: list[str], values: dict) -> str:
     return ";".join(str(values.get(f, "")) for f in fields)
